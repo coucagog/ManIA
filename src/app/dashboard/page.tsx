@@ -71,7 +71,10 @@ export default async function DashboardPage() {
                 <span className="last-seen">Dernière session : il y a 2 jours.</span>
               </div>
               <div className="resume-cta">
-                <Link href={`/cours/${resumeCourse.slug}`} className="btn-cta">Reprendre →</Link>
+                <Link
+                  href={`/cours/${resumeCourse.slug}${inProgress?.lastChapterId ? `?ch=${inProgress.lastChapterId}` : ''}`}
+                  className="btn-cta"
+                >Reprendre →</Link>
                 <button className="btn-ghost" style={{ fontSize: '12px', padding: '8px 14px' }}>Télécharger</button>
               </div>
             </div>

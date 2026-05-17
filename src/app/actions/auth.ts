@@ -59,8 +59,9 @@ export async function verify2fa(
   formData: FormData
 ): Promise<{ error: string; code?: string }> {
   const digits = ['d0', 'd1', 'd2', 'd3', 'd4', 'd5']
-    .map((k) => formData.get(k) as string)
+    .map((k) => (formData.get(k) as string | null) ?? '')
     .join('')
+    .trim()
 
   const cookieStore = await cookies()
   const pendingToken = cookieStore.get('pending_2fa')?.value
@@ -72,13 +73,23 @@ export async function verify2fa(
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) return { error: 'Utilisateur introuvable.' }
 
+  console.log('[2FA DEBUG] digits saisis:', JSON.stringify(digits))
+  console.log('[2FA DEBUG] code en DB:', JSON.stringify(user.twoFactorCode))
+  console.log('[2FA DEBUG] expiry:', user.twoFactorExpires, 'now:', new Date())
+
+  const expires = user.twoFactorExpires
+    ? new Date(user.twoFactorExpires as unknown as string)
+    : null
+
   if (
     !user.twoFactorCode ||
-    !user.twoFactorExpires ||
+    !expires ||
     user.twoFactorCode !== digits ||
-    user.twoFactorExpires < new Date()
+    expires < new Date()
   ) {
-    return { error: 'Code invalide ou expiré.' }
+    const hint =
+      process.env.NODE_ENV !== 'production' ? user.twoFactorCode ?? undefined : undefined
+    return { error: 'Code invalide ou expiré.', code: hint }
   }
 
   // Clear 2FA code

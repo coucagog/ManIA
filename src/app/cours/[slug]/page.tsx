@@ -4,10 +4,20 @@ import { notFound } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
+import LessonPanel from '@/components/LessonPanel'
 import Link from 'next/link'
+import { markChapterDone } from '@/app/actions/progress'
 
-export default async function CoursPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CoursPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ ch?: string }>
+}) {
   const { slug } = await params
+  const { ch } = await searchParams
+
   const session = await verifySession()
   const user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return null
@@ -16,26 +26,27 @@ export default async function CoursPage({ params }: { params: Promise<{ slug: st
     where: { slug },
     include: { chapters: { orderBy: { order: 'asc' } } },
   })
-
   if (!course) notFound()
 
   const progress = await prisma.progress.findUnique({
     where: { userId_courseId: { userId: session.userId, courseId: course.id } },
   })
 
-  const activeChapterId = progress?.lastChapterId ?? course.chapters[0]?.id
+  // Active chapter: URL param > last seen > first
+  const activeChapterId =
+    (ch && course.chapters.find(c => c.id === ch) ? ch : null) ??
+    progress?.lastChapterId ??
+    course.chapters[0]?.id
+
   const activeChapter = course.chapters.find(c => c.id === activeChapterId) ?? course.chapters[0]
   const activeIdx = course.chapters.findIndex(c => c.id === activeChapter?.id)
-
   const prevChapter = activeIdx > 0 ? course.chapters[activeIdx - 1] : null
   const nextChapter = activeIdx < course.chapters.length - 1 ? course.chapters[activeIdx + 1] : null
 
   const completedPct = progress?.percentage ?? 0
-  const completedIds = new Set(
-    course.chapters
-      .slice(0, Math.floor((completedPct / 100) * course.chapters.length))
-      .map(c => c.id)
-  )
+  const completedCount = Math.floor((completedPct / 100) * course.chapters.length)
+  const completedIds = new Set(course.chapters.slice(0, completedCount).map(c => c.id))
+  const isCurrentDone = completedIds.has(activeChapter?.id ?? '')
 
   const notes = activeChapter
     ? await prisma.note.findMany({
@@ -50,6 +61,7 @@ export default async function CoursPage({ params }: { params: Promise<{ slug: st
       <div className="main">
         <Topbar placeholder="Rechercher dans la transcription…" initials={user.initials} />
         <div className="app-body">
+
           {/* TOC */}
           <div className="toc">
             <div className="toc-course">{course.parcours} · {course.chapters.length} chapitres</div>
@@ -146,69 +158,33 @@ export default async function CoursPage({ params }: { params: Promise<{ slug: st
                   <button className="btn-ghost" disabled>Fin →</button>
                 )}
               </div>
-              <button className="btn-done">Marquer comme terminé</button>
+
+              {!isCurrentDone && activeChapter && (
+                <form action={markChapterDone}>
+                  <input type="hidden" name="courseId" value={course.id} />
+                  <input type="hidden" name="chapterId" value={activeChapter.id} />
+                  <input type="hidden" name="chapterOrder" value={activeChapter.order} />
+                  <input type="hidden" name="totalChapters" value={course.chapters.length} />
+                  <input type="hidden" name="nextChapterId" value={nextChapter?.id ?? ''} />
+                  <input type="hidden" name="slug" value={slug} />
+                  <button type="submit" className="btn-done">Marquer comme terminé</button>
+                </form>
+              )}
+              {isCurrentDone && (
+                <span className="btn-done" style={{ opacity: 0.5, cursor: 'default' }}>✓ Chapitre terminé</span>
+              )}
             </div>
           </div>
 
-          {/* Right panel */}
-          <div className="rpanel">
-            <div className="p-tabs">
-              <button className="p-tab active">Transcript</button>
-              <button className="p-tab">Ressources</button>
-              <button className="p-tab">Notes</button>
-            </div>
-            <div className="p-content">
-              <div className="tab-pane active">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Suivre la lecture</span>
-                  <button className="c-btn" style={{ fontSize: '11px', padding: '5px 10px' }}>Lire sans la vidéo</button>
-                </div>
-                <div className="tr-para">
-                  <div className="tr-ts">00:00</div>
-                  Dans ce chapitre, nous allons examiner les concepts fondamentaux abordés dans <em>{activeChapter?.title}</em>.
-                </div>
-                <div className="tr-para">
-                  <div className="tr-ts">01:24</div>
-                  La question centrale est celle de la coordination des systèmes dans des environnements institutionnels fermés.
-                </div>
-                <div className="tr-para cur">
-                  <div className="tr-ts">04:38</div>
-                  L&apos;orchestrateur joue ici un rôle clé dans la gestion des décisions et la traçabilité.
-                </div>
-              </div>
-
-              <div className="tab-pane">
-                <div className="res-item">
-                  <div className="res-icon">PDF</div>
-                  <div>
-                    <div className="res-name">Cadre méthodologique — {activeChapter?.title}</div>
-                    <div className="res-size">320 Ko</div>
-                  </div>
-                  <span className="res-dl">↓ Télécharger</span>
-                </div>
-                <div className="res-item">
-                  <div className="res-icon">PDF</div>
-                  <div>
-                    <div className="res-name">Fiche de synthèse</div>
-                    <div className="res-size">88 Ko</div>
-                  </div>
-                  <span className="res-dl">↓ Télécharger</span>
-                </div>
-                <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '16px', lineHeight: 1.5 }}>
-                  Toutes les ressources sont confidentielles et réservées aux apprenants MANIA.
-                </p>
-              </div>
-
-              <div className="tab-pane">
-                <p className="notes-hint">Vos notes sont liées au timecode courant.</p>
-                <textarea className="notes-ta" placeholder="Vos notes pour ce chapitre…">
-                  {notes[0]?.content ?? ''}
-                </textarea>
-                <a className="notes-exp">↓ Exporter mes notes en PDF</a>
-                <p className="notes-priv" style={{ marginTop: '14px' }}>Vos notes sont privées.</p>
-              </div>
-            </div>
-          </div>
+          {/* Right panel — client component for tab switching + notes */}
+          {activeChapter && (
+            <LessonPanel
+              noteContent={notes[0]?.content ?? ''}
+              chapterId={activeChapter.id}
+              slug={slug}
+              chapterTitle={activeChapter.title}
+            />
+          )}
         </div>
       </div>
       <MobileNav active="lesson" />
