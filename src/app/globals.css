@@ -285,8 +285,8 @@ html, body {
   color: var(--coral);
   cursor: pointer;
   border: none;
-  font-family: var(--sans);
   text-decoration: none;
+  font-family: var(--sans);
 }
 
 .main { margin-left: 72px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
@@ -644,9 +644,9 @@ html, body {
   .cat-title { font-size: 24px !important; }
   .app-body { display: flex !important; flex-direction: column !important; overflow: visible !important; min-height: unset !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding-bottom: 64px !important; }
   .toc { display: none !important; }
-  .rpanel { display: none !important; border-left: none !important; border-top: 1px solid var(--border); min-height: 320px; width: 100% !important; max-width: 100% !important; }
+  .rpanel { display: none !important; border-left: none !important; border-top: 1px solid var(--border); min-height: 240px; width: 100% !important; max-width: 100% !important; }
   .rpanel.m-visible { display: flex !important; margin-bottom: 64px !important; }
-  .lesson-center { padding: 14px 14px 84px !important; gap: 12px !important; overflow: visible !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
+  .lesson-center { padding: 14px 14px 16px !important; gap: 12px !important; overflow: visible !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
   .player { width: 100% !important; max-width: 100% !important; }
   .p-content { padding-bottom: 84px !important; }
   #m-lesson-tabs { display: flex !important; flex-direction: column; }
