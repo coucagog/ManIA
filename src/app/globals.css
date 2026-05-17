@@ -342,6 +342,21 @@ html, body {
 .bell svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .bell-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: var(--coral); border-radius: 50%; border: 1.5px solid var(--surface); }
 
+.tb-settings {
+  background: var(--surface);
+  box-shadow: var(--neo-r-sm);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.tb-settings:hover { color: var(--coral); }
+
 .page { padding: 32px; flex: 1; max-width: 1180px; }
 
 /* ── DASHBOARD ── */
