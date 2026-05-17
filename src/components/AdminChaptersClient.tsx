@@ -46,6 +46,7 @@ export default function AdminChaptersClient({ courseId, chapters }: { courseId: 
               <option>Vidéo</option>
               <option>Texte</option>
               <option>Texte + Vidéo</option>
+              <option>Texte + Audio</option>
               <option>Audio</option>
             </select>
           </div>
@@ -110,6 +111,7 @@ function ChapterRow({ chapter, courseId, isFirst, isLast, editing, onEdit }: {
               <option>Vidéo</option>
               <option>Texte</option>
               <option>Texte + Vidéo</option>
+              <option>Texte + Audio</option>
               <option>Audio</option>
             </select>
           </div>
