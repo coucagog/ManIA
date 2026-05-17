@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
-import ThemeToggle from '@/components/ThemeToggle'
 
 type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'profil' | 'other'; initials: string }
 
@@ -35,7 +34,6 @@ export default function Sidebar({ active, initials }: Props) {
         </Link>
       </nav>
       <div className="sb-bot">
-        <ThemeToggle />
         <form action={logout}>
           <button type="submit" className="avatar" title="Se déconnecter">{initials}</button>
         </form>

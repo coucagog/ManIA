@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
 type TweakState = {
   accentH: number; accentS: number; accentL: number; accentBudget: string
@@ -24,76 +24,150 @@ const FS: Record<string, string> = {
   mono: "ui-monospace,'JetBrains Mono','IBM Plex Mono',Menlo,monospace",
 }
 
+function applyTweaks(t: TweakState) {
+  const r = document.documentElement
+  const dark = t.theme === 'dark' || (t.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  r.dataset.theme = dark ? 'dark' : ''
+  if (t.theme !== 'system') localStorage.setItem('theme', t.theme)
+
+  const acc = `hsl(${t.accentH},${t.accentS}%,${t.accentL}%)`
+  const accD = `hsl(${t.accentH},${t.accentS}%,${Math.max(20, t.accentL - 14)}%)`
+  r.style.setProperty('--coral', acc)
+  r.style.setProperty('--coral-d', accD)
+
+  if (!dark) {
+    const s = Math.max(0, (t.bgL - 88) * 2 + t.bgH * 0.1)
+    r.style.setProperty('--bg', `hsl(${t.bgH},${s.toFixed(1)}%,${t.bgL}%)`)
+    r.style.setProperty('--surface', `hsl(${t.bgH},${Math.max(0,s-.8).toFixed(1)}%,${(t.bgL-2.5).toFixed(1)}%)`)
+    r.style.setProperty('--surf-hi', `hsl(${t.bgH},${Math.max(0,s-1.2).toFixed(1)}%,${(t.bgL-4.5).toFixed(1)}%)`)
+    r.style.setProperty('--inset', `hsl(${t.bgH},${Math.max(0,s-2).toFixed(1)}%,${(t.bgL-8).toFixed(1)}%)`)
+    r.style.setProperty('--border', `hsl(${t.bgH},${Math.max(0,s-1).toFixed(1)}%,${(t.bgL-6).toFixed(1)}%)`)
+  } else {
+    ['--bg','--surface','--surf-hi','--inset','--border'].forEach(v => r.style.removeProperty(v))
+  }
+
+  const op = t.neoOp, sp = t.neoSpread
+  const dp = +(sp*.4).toFixed(1), sm = +(sp*.2).toFixed(1), ti = +(sm*.5).toFixed(1), tb = +(sp*.25).toFixed(1)
+  const dC = !dark ? `rgba(160,152,142,${op.toFixed(2)})` : `rgba(20,25,33,${op.toFixed(2)})`
+  const lC = !dark ? `rgba(255,255,255,${(op*.85).toFixed(2)})` : `rgba(54,63,76,${(op*.65).toFixed(2)})`
+  const h = (a: number, b: number) => `${a}px ${a}px ${b}px ${dC},-${a}px -${a}px ${b}px ${lC}`
+  const hi = (a: number, b: number) => `inset ${a}px ${a}px ${b}px ${dC},inset -${a}px -${a}px ${b}px ${lC}`
+  r.style.setProperty('--neo-r', h(dp, sp))
+  r.style.setProperty('--neo-r-sm', h(sm, +(sp*.5).toFixed(1)))
+  r.style.setProperty('--neo-i', hi(sm, +(sp*.5).toFixed(1)))
+  r.style.setProperty('--neo-i-sm', hi(ti, tb))
+
+  r.style.setProperty('--serif', FS[t.fontDisplay] || FS.serif)
+  r.style.setProperty('--sans', FS[t.fontBody] || FS.sans)
+  document.body.style.fontSize = t.fontSize + 'px'
+  document.body.style.lineHeight = String(t.lineH)
+  r.style.setProperty('--r', t.radiusLg + 'px')
+  r.style.setProperty('--r-sm', Math.round(t.radiusLg * .625) + 'px')
+
+  const d = t.density, sbW = t.sidebarW, p = (b: number) => Math.round(b * d)
+  const tbH = t.topbar === 'slim' ? '36px' : t.topbar === 'hidden' ? '0px' : '54px'
+  const bw: Record<string, string> = { none:'0px', hairline:'0.5px', normal:'1px', bold:'2px' }
+  const bv = bw[t.borderW] || '1px'
+  let css = `@media(min-width:769px){.sidebar{width:${sbW}px!important}.main{margin-left:${sbW}px!important}.page{padding:${p(32)}px!important}.resume-card{padding:${p(28)}px!important;gap:${p(24)}px!important}.sec-card{padding:${p(24)}px!important;gap:${p(12)}px!important}.activity-card{padding:${p(24)}px!important}.sec-grid{gap:${p(20)}px!important;margin-bottom:${p(26)}px!important}.filter-panel{padding:${p(20)}px!important}.cg{gap:${p(18)}px!important}.lesson-center{padding:${p(26)}px ${p(22)}px!important;gap:${p(18)}px!important}.toc{padding:${p(22)}px ${p(14)}px!important;border-right-width:${bv}!important}.p-content{padding:${p(18)}px ${p(14)}px!important}.rpanel{border-left-width:${bv}!important}.auth-card{padding:${p(52)}px ${p(40)}px!important;gap:${p(28)}px!important}}.topbar{height:${tbH}!important;overflow:hidden}.act-item{border-bottom-width:${bv}!important}.p-tabs{border-bottom-width:${bv}!important}.lesson-footer{border-top-width:${bv}!important}.greeting,.lesson-title,.cat-title,.course-name,.sec-title,.cc-title,.logo,.sb-logo,.date-big{letter-spacing:${t.displayTrack}em!important}.tr-para,.act-text,.sec-meta,.toc-ch-title{line-height:${t.lineH}!important}`
+  if (t.accentBudget === 'minimal') css += `.date-big{color:var(--fg)!important}.ch-check,.tr-ts,.res-dl{color:var(--muted)!important}.bell-dot{background:var(--muted)!important}.p-tab.active{border-bottom-color:var(--muted)!important;color:var(--fg)!important}`
+  else if (t.accentBudget === 'generous') css += `.greeting{color:var(--coral)!important}.cat-title{color:var(--coral)!important}.lesson-title{color:var(--coral)!important}.f-sec-label,.sec-label,.toc-course{color:var(--coral)!important}`
+  const el = document.getElementById('tweak-overrides')
+  if (el) el.textContent = css
+}
+
+// ── Slider: uncontrolled input, local display state only ──────────────────
+function Slider({ label, min, max, init, fmt, onInput }: {
+  label: string; min: number; max: number; init: number
+  fmt: (v: number) => string
+  onInput: (v: number) => void
+}) {
+  const [display, setDisplay] = useState(fmt(init))
+  const resetRef = useRef(init)
+
+  return (
+    <div className="tw-row">
+      <div className="tw-lbl">{label} <span className="tw-val">{display}</span></div>
+      <input
+        className="tw-slider"
+        type="range"
+        min={min}
+        max={max}
+        defaultValue={resetRef.current}
+        onInput={e => {
+          const v = +(e.target as HTMLInputElement).value
+          setDisplay(fmt(v))
+          onInput(v)
+        }}
+      />
+    </div>
+  )
+}
+
+// ── Radio button ──────────────────────────────────────────────────────────
+function Radio({ val, label, current, onClick }: { val: string; label: string; current: string; onClick: () => void }) {
+  return (
+    <button className={`tw-radio${current === val ? ' on' : ''}`} onClick={onClick}>{label}</button>
+  )
+}
+
 export default function TweaksPanel() {
   const [open, setOpen] = useState(false)
-  const [T, setT] = useState<TweakState>(DEFAULTS)
+  const [resetKey, setResetKey] = useState(0)
 
-  const applyTweaks = useCallback((t: TweakState) => {
-    const r = document.documentElement
-    const dark = t.theme === 'dark' || (t.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    r.dataset.theme = dark ? 'dark' : ''
-    if (t.theme !== 'system') localStorage.setItem('theme', t.theme)
+  // T is a ref — mutations never trigger re-renders, so sliders drag smoothly
+  const T = useRef<TweakState>({ ...DEFAULTS })
 
-    const acc = `hsl(${t.accentH},${t.accentS}%,${t.accentL}%)`
-    const accD = `hsl(${t.accentH},${t.accentS}%,${Math.max(20, t.accentL - 14)}%)`
-    r.style.setProperty('--coral', acc)
-    r.style.setProperty('--coral-d', accD)
+  // Radio/display state (needs re-render to show selected state)
+  const [radios, setRadios] = useState({
+    accentBudget: DEFAULTS.accentBudget,
+    fontDisplay: DEFAULTS.fontDisplay,
+    fontBody: DEFAULTS.fontBody,
+    borderW: DEFAULTS.borderW,
+    theme: DEFAULTS.theme,
+    topbar: DEFAULTS.topbar,
+    bgPreset: 'cream',
+  })
+  const [accentPreview, setAccentPreview] = useState(
+    `linear-gradient(90deg,hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${Math.max(20,DEFAULTS.accentL-14)}%),hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${DEFAULTS.accentL}%),hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${Math.min(88,DEFAULTS.accentL+14)}%))`
+  )
 
-    if (!dark) {
-      const s = Math.max(0, (t.bgL - 88) * 2 + t.bgH * 0.1)
-      r.style.setProperty('--bg', `hsl(${t.bgH},${s.toFixed(1)}%,${t.bgL}%)`)
-      r.style.setProperty('--surface', `hsl(${t.bgH},${Math.max(0, s - 0.8).toFixed(1)}%,${(t.bgL - 2.5).toFixed(1)}%)`)
-      r.style.setProperty('--surf-hi', `hsl(${t.bgH},${Math.max(0, s - 1.2).toFixed(1)}%,${(t.bgL - 4.5).toFixed(1)}%)`)
-      r.style.setProperty('--inset', `hsl(${t.bgH},${Math.max(0, s - 2).toFixed(1)}%,${(t.bgL - 8).toFixed(1)}%)`)
-      r.style.setProperty('--border', `hsl(${t.bgH},${Math.max(0, s - 1).toFixed(1)}%,${(t.bgL - 6).toFixed(1)}%)`)
-    } else {
-      ['--bg','--surface','--surf-hi','--inset','--border'].forEach(v => r.style.removeProperty(v))
-    }
+  useEffect(() => { applyTweaks(T.current) }, [])
 
-    const op = t.neoOp, sp = t.neoSpread
-    const dp = +(sp * 0.4).toFixed(1), sm = +(sp * 0.2).toFixed(1), ti = +(sm * 0.5).toFixed(1), tb = +(sp * 0.25).toFixed(1)
-    const dC = !dark ? `rgba(160,152,142,${op.toFixed(2)})` : `rgba(20,25,33,${op.toFixed(2)})`
-    const lC = !dark ? `rgba(255,255,255,${(op * 0.85).toFixed(2)})` : `rgba(54,63,76,${(op * 0.65).toFixed(2)})`
-    const h = (a: number, b: number) => `${a}px ${a}px ${b}px ${dC},-${a}px -${a}px ${b}px ${lC}`
-    const hi = (a: number, b: number) => `inset ${a}px ${a}px ${b}px ${dC},inset -${a}px -${a}px ${b}px ${lC}`
-    r.style.setProperty('--neo-r', h(dp, sp))
-    r.style.setProperty('--neo-r-sm', h(sm, +(sp * 0.5).toFixed(1)))
-    r.style.setProperty('--neo-i', hi(sm, +(sp * 0.5).toFixed(1)))
-    r.style.setProperty('--neo-i-sm', hi(ti, tb))
+  function set<K extends keyof TweakState>(key: K, val: TweakState[K]) {
+    T.current[key] = val
+    applyTweaks(T.current)
+  }
 
-    r.style.setProperty('--serif', FS[t.fontDisplay] || FS.serif)
-    r.style.setProperty('--sans', FS[t.fontBody] || FS.sans)
-    document.body.style.fontSize = t.fontSize + 'px'
-    document.body.style.lineHeight = String(t.lineH)
-    r.style.setProperty('--r', t.radiusLg + 'px')
-    r.style.setProperty('--r-sm', Math.round(t.radiusLg * 0.625) + 'px')
+  function setRadio<K extends keyof typeof radios>(key: K, val: string) {
+    setRadios(r => ({ ...r, [key]: val }))
+    ;(T.current as Record<string, unknown>)[key] = val
+    applyTweaks(T.current)
+  }
 
-    const d = t.density, sbW = t.sidebarW, p = (b: number) => Math.round(b * d)
-    const tbH = t.topbar === 'slim' ? '36px' : t.topbar === 'hidden' ? '0px' : '54px'
-    const bw: Record<string, string> = { none:'0px', hairline:'0.5px', normal:'1px', bold:'2px' }
-    let css = `@media(min-width:769px){.sidebar{width:${sbW}px!important}.main{margin-left:${sbW}px!important}.page{padding:${p(32)}px!important}.resume-card{padding:${p(28)}px!important;gap:${p(24)}px!important}.sec-card{padding:${p(24)}px!important;gap:${p(12)}px!important}.activity-card{padding:${p(24)}px!important}.sec-grid{gap:${p(20)}px!important;margin-bottom:${p(26)}px!important}.filter-panel{padding:${p(20)}px!important}.cg{gap:${p(18)}px!important}.lesson-center{padding:${p(26)}px ${p(22)}px!important;gap:${p(18)}px!important}.toc{padding:${p(22)}px ${p(14)}px!important;border-right-width:${bw[t.borderW]||'1px'}!important}.p-content{padding:${p(18)}px ${p(14)}px!important}.rpanel{border-left-width:${bw[t.borderW]||'1px'}!important}.auth-card{padding:${p(52)}px ${p(40)}px!important;gap:${p(28)}px!important}}.topbar{height:${tbH}!important;overflow:hidden}.act-item{border-bottom-width:${bw[t.borderW]||'1px'}!important}.p-tabs{border-bottom-width:${bw[t.borderW]||'1px'}!important}.lesson-footer{border-top-width:${bw[t.borderW]||'1px'}!important}.greeting,.lesson-title,.cat-title,.course-name,.sec-title,.cc-title,.logo,.sb-logo,.date-big{letter-spacing:${t.displayTrack}em!important}.tr-para,.act-text,.sec-meta,.toc-ch-title{line-height:${t.lineH}!important}`
-
-    if (t.accentBudget === 'minimal') css += `.date-big{color:var(--fg)!important}.ch-check,.tr-ts,.res-dl{color:var(--muted)!important}.bell-dot{background:var(--muted)!important}.p-tab.active{border-bottom-color:var(--muted)!important;color:var(--fg)!important}`
-    else if (t.accentBudget === 'generous') css += `.greeting{color:var(--coral)!important}.cat-title{color:var(--coral)!important}.lesson-title{color:var(--coral)!important}.f-sec-label,.sec-label,.toc-course{color:var(--coral)!important}`
-
-    const el = document.getElementById('tweak-overrides')
-    if (el) el.textContent = css
-  }, [])
-
-  useEffect(() => { applyTweaks(T) }, [T, applyTweaks])
-
-  function update<K extends keyof TweakState>(key: K, val: TweakState[K]) {
-    setT(prev => ({ ...prev, [key]: val }))
+  function updateAccentPreview() {
+    const t = T.current
+    setAccentPreview(`linear-gradient(90deg,hsl(${t.accentH},${t.accentS}%,${Math.max(20,t.accentL-14)}%),hsl(${t.accentH},${t.accentS}%,${t.accentL}%),hsl(${t.accentH},${t.accentS}%,${Math.min(88,t.accentL+14)}%))`)
   }
 
   function setBgPreset(p: string) {
     const P: Record<string, { bgH: number; bgL: number }> = {
-      cream:{ bgH:30, bgL:94 }, pearl:{ bgH:220, bgL:96 }, white:{ bgH:0, bgL:99 }, lavender:{ bgH:260, bgL:95 }
+      cream:{bgH:30,bgL:94}, pearl:{bgH:220,bgL:96}, white:{bgH:0,bgL:99}, lavender:{bgH:260,bgL:95}
     }
-    if (P[p]) setT(prev => ({ ...prev, bgH: P[p].bgH, bgL: P[p].bgL }))
+    if (!P[p]) return
+    T.current.bgH = P[p].bgH
+    T.current.bgL = P[p].bgL
+    setRadios(r => ({ ...r, bgPreset: p }))
+    setResetKey(k => k + 1) // force re-mount sliders with new defaultValues
+    applyTweaks(T.current)
   }
 
-  function reset() { setT({ ...DEFAULTS }) }
+  const reset = useCallback(() => {
+    T.current = { ...DEFAULTS }
+    setRadios({ accentBudget:'moderate', fontDisplay:'serif', fontBody:'sans', borderW:'hairline', theme:'light', topbar:'normal', bgPreset:'cream' })
+    setAccentPreview(`linear-gradient(90deg,hsl(19,83%,54%),hsl(19,83%,68%),hsl(19,83%,82%))`)
+    setResetKey(k => k + 1)
+    applyTweaks(T.current)
+  }, [])
 
   function copyCSSVars() {
     const r = document.documentElement, s = getComputedStyle(r)
@@ -102,20 +176,7 @@ export default function TweaksPanel() {
     navigator.clipboard.writeText(css).catch(() => alert(css))
   }
 
-  const accentPreview = `linear-gradient(90deg,hsl(${T.accentH},${T.accentS}%,${Math.max(20,T.accentL-14)}%),hsl(${T.accentH},${T.accentS}%,${T.accentL}%),hsl(${T.accentH},${T.accentS}%,${Math.min(88,T.accentL+14)}%))`
-
-  function Radio({ group, val, label, current, onClick }: { group: string; val: string; label: string; current: string; onClick: () => void }) {
-    return <button className={`tw-radio${current === val ? ' on' : ''}`} data-group={group} data-val={val} onClick={onClick}>{label}</button>
-  }
-
-  function Slider({ id, min, max, value, display, onChange }: { id: string; min: number; max: number; value: number; display: string; onChange: (v: number) => void }) {
-    return (
-      <div className="tw-row">
-        <div className="tw-lbl">{id} <span className="tw-val">{display}</span></div>
-        <input className="tw-slider" type="range" min={min} max={max} value={value} onChange={e => onChange(+e.target.value)} />
-      </div>
-    )
-  }
+  const D = DEFAULTS
 
   return (
     <>
@@ -127,22 +188,27 @@ export default function TweaksPanel() {
           <button className="tw-copy" onClick={copyCSSVars}>Copier CSS</button>
           <button className="tw-x" onClick={() => setOpen(false)}>×</button>
         </div>
-        <div className="tw-body">
+
+        <div className="tw-body" key={resetKey}>
 
           {/* Couleur d'accent */}
           <div className="tw-section">
             <div className="tw-sec-hd">Couleur d&apos;accent</div>
             <div className="tw-sec-body">
-              <Slider id="Teinte" min={0} max={360} value={T.accentH} display={`${T.accentH}°`} onChange={v => update('accentH', v)} />
-              <Slider id="Saturation" min={10} max={100} value={T.accentS} display={`${T.accentS}%`} onChange={v => update('accentS', v)} />
-              <Slider id="Luminosité" min={25} max={82} value={T.accentL} display={`${T.accentL}%`} onChange={v => update('accentL', v)} />
+              <Slider label="Teinte" min={0} max={360} init={D.accentH} fmt={v => `${v}°`}
+                onInput={v => { set('accentH', v); updateAccentPreview() }} />
+              <Slider label="Saturation" min={10} max={100} init={D.accentS} fmt={v => `${v}%`}
+                onInput={v => { set('accentS', v); updateAccentPreview() }} />
+              <Slider label="Luminosité" min={25} max={82} init={D.accentL} fmt={v => `${v}%`}
+                onInput={v => { set('accentL', v); updateAccentPreview() }} />
               <div className="tw-prev" style={{ background: accentPreview }} />
-              <div className="tw-row" style={{ marginTop: '4px' }}>
+              <div className="tw-row" style={{ marginTop: 4 }}>
                 <div className="tw-lbl">Budget accent</div>
                 <div className="tw-radios">
-                  <Radio group="budget" val="minimal" label="Minimal" current={T.accentBudget} onClick={() => update('accentBudget', 'minimal')} />
-                  <Radio group="budget" val="moderate" label="Modéré" current={T.accentBudget} onClick={() => update('accentBudget', 'moderate')} />
-                  <Radio group="budget" val="generous" label="Généreux" current={T.accentBudget} onClick={() => update('accentBudget', 'generous')} />
+                  {(['minimal','moderate','generous'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Minimal','Modéré','Généreux'][i]} current={radios.accentBudget}
+                      onClick={() => setRadio('accentBudget', v)} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -152,20 +218,25 @@ export default function TweaksPanel() {
           <div className="tw-section">
             <div className="tw-sec-hd">Fond &amp; Surfaces</div>
             <div className="tw-sec-body">
-              <Slider id="Chaleur" min={0} max={80} value={T.bgH} display={`${T.bgH}°`} onChange={v => update('bgH', v)} />
-              <Slider id="Luminosité fond" min={84} max={99} value={T.bgL} display={`${T.bgL}%`} onChange={v => update('bgL', v)} />
+              <Slider label="Chaleur" min={0} max={80} init={T.current.bgH} fmt={v => `${v}°`}
+                onInput={v => set('bgH', v)} />
+              <Slider label="Luminosité fond" min={84} max={99} init={T.current.bgL} fmt={v => `${v}%`}
+                onInput={v => set('bgL', v)} />
               <div className="tw-row">
                 <div className="tw-lbl">Preset</div>
                 <div className="tw-radios">
                   {(['cream','pearl','white','lavender'] as const).map((p, i) => (
-                    <button key={p} className={`tw-radio${(T.bgH === [30,220,0,260][i] && T.bgL === [94,96,99,95][i]) ? ' on' : ''}`} onClick={() => setBgPreset(p)}>
+                    <button key={p} className={`tw-radio${radios.bgPreset === p ? ' on' : ''}`}
+                      onClick={() => setBgPreset(p)}>
                       {['Crème','Perle','Blanc','Lavande'][i]}
                     </button>
                   ))}
                 </div>
               </div>
-              <Slider id="Intensité néomorphisme" min={0} max={100} value={Math.round(T.neoOp * 100)} display={`${Math.round(T.neoOp * 100)}%`} onChange={v => update('neoOp', v / 100)} />
-              <Slider id="Dispersion ombres" min={2} max={44} value={T.neoSpread} display={`${T.neoSpread}px`} onChange={v => update('neoSpread', v)} />
+              <Slider label="Intensité néomorphisme" min={0} max={100} init={Math.round(D.neoOp*100)} fmt={v => `${v}%`}
+                onInput={v => set('neoOp', v/100)} />
+              <Slider label="Dispersion ombres" min={2} max={44} init={D.neoSpread} fmt={v => `${v}px`}
+                onInput={v => set('neoSpread', v)} />
             </div>
           </div>
 
@@ -176,22 +247,27 @@ export default function TweaksPanel() {
               <div className="tw-row">
                 <div className="tw-lbl">Police display</div>
                 <div className="tw-radios">
-                  <Radio group="fdisplay" val="serif" label="Sérif" current={T.fontDisplay} onClick={() => update('fontDisplay', 'serif')} />
-                  <Radio group="fdisplay" val="sans" label="Sans" current={T.fontDisplay} onClick={() => update('fontDisplay', 'sans')} />
-                  <Radio group="fdisplay" val="mono" label="Mono" current={T.fontDisplay} onClick={() => update('fontDisplay', 'mono')} />
+                  {(['serif','sans','mono'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Sérif','Sans','Mono'][i]} current={radios.fontDisplay}
+                      onClick={() => setRadio('fontDisplay', v)} />
+                  ))}
                 </div>
               </div>
               <div className="tw-row">
                 <div className="tw-lbl">Police corps</div>
                 <div className="tw-radios">
-                  <Radio group="fbody" val="sans" label="Sans" current={T.fontBody} onClick={() => update('fontBody', 'sans')} />
-                  <Radio group="fbody" val="serif" label="Sérif" current={T.fontBody} onClick={() => update('fontBody', 'serif')} />
-                  <Radio group="fbody" val="mono" label="Mono" current={T.fontBody} onClick={() => update('fontBody', 'mono')} />
+                  {(['sans','serif','mono'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Sans','Sérif','Mono'][i]} current={radios.fontBody}
+                      onClick={() => setRadio('fontBody', v)} />
+                  ))}
                 </div>
               </div>
-              <Slider id="Taille de base" min={12} max={20} value={T.fontSize} display={`${T.fontSize}px`} onChange={v => update('fontSize', v)} />
-              <Slider id="Interlignage" min={120} max={200} value={Math.round(T.lineH * 100)} display={T.lineH.toFixed(2)} onChange={v => update('lineH', v / 100)} />
-              <Slider id="Tracking titres" min={-6} max={6} value={Math.round(T.displayTrack * 100)} display={T.displayTrack.toFixed(2)} onChange={v => update('displayTrack', v / 100)} />
+              <Slider label="Taille de base" min={12} max={20} init={D.fontSize} fmt={v => `${v}px`}
+                onInput={v => set('fontSize', v)} />
+              <Slider label="Interlignage" min={120} max={200} init={Math.round(D.lineH*100)} fmt={v => (v/100).toFixed(2)}
+                onInput={v => set('lineH', v/100)} />
+              <Slider label="Tracking titres" min={-6} max={6} init={Math.round(D.displayTrack*100)} fmt={v => (v/100).toFixed(2)}
+                onInput={v => set('displayTrack', v/100)} />
             </div>
           </div>
 
@@ -199,16 +275,19 @@ export default function TweaksPanel() {
           <div className="tw-section">
             <div className="tw-sec-hd">Géométrie</div>
             <div className="tw-sec-body">
-              <Slider id="Rayon principal" min={0} max={32} value={T.radiusLg} display={`${T.radiusLg}px`} onChange={v => update('radiusLg', v)} />
-              <Slider id="Densité" min={55} max={165} value={Math.round(T.density * 100)} display={`${T.density.toFixed(1)}×`} onChange={v => update('density', v / 100)} />
-              <Slider id="Largeur sidebar" min={48} max={160} value={T.sidebarW} display={`${T.sidebarW}px`} onChange={v => update('sidebarW', v)} />
+              <Slider label="Rayon principal" min={0} max={32} init={D.radiusLg} fmt={v => `${v}px`}
+                onInput={v => set('radiusLg', v)} />
+              <Slider label="Densité" min={55} max={165} init={Math.round(D.density*100)} fmt={v => `${(v/100).toFixed(1)}×`}
+                onInput={v => set('density', v/100)} />
+              <Slider label="Largeur sidebar" min={48} max={160} init={D.sidebarW} fmt={v => `${v}px`}
+                onInput={v => set('sidebarW', v)} />
               <div className="tw-row">
                 <div className="tw-lbl">Bordures</div>
                 <div className="tw-radios">
-                  <Radio group="bw" val="none" label="Aucune" current={T.borderW} onClick={() => update('borderW', 'none')} />
-                  <Radio group="bw" val="hairline" label="Légère" current={T.borderW} onClick={() => update('borderW', 'hairline')} />
-                  <Radio group="bw" val="normal" label="Normale" current={T.borderW} onClick={() => update('borderW', 'normal')} />
-                  <Radio group="bw" val="bold" label="Marquée" current={T.borderW} onClick={() => update('borderW', 'bold')} />
+                  {(['none','hairline','normal','bold'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Aucune','Légère','Normale','Marquée'][i]} current={radios.borderW}
+                      onClick={() => setRadio('borderW', v)} />
+                  ))}
                 </div>
               </div>
             </div>
@@ -221,17 +300,19 @@ export default function TweaksPanel() {
               <div className="tw-row">
                 <div className="tw-lbl">Mode</div>
                 <div className="tw-radios">
-                  <Radio group="theme" val="light" label="Clair" current={T.theme} onClick={() => update('theme', 'light')} />
-                  <Radio group="theme" val="dark" label="Sombre" current={T.theme} onClick={() => update('theme', 'dark')} />
-                  <Radio group="theme" val="system" label="Système" current={T.theme} onClick={() => update('theme', 'system')} />
+                  {(['light','dark','system'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Clair','Sombre','Système'][i]} current={radios.theme}
+                      onClick={() => setRadio('theme', v)} />
+                  ))}
                 </div>
               </div>
               <div className="tw-row">
                 <div className="tw-lbl">Topbar</div>
                 <div className="tw-radios">
-                  <Radio group="topbar" val="normal" label="Normal" current={T.topbar} onClick={() => update('topbar', 'normal')} />
-                  <Radio group="topbar" val="slim" label="Slim" current={T.topbar} onClick={() => update('topbar', 'slim')} />
-                  <Radio group="topbar" val="hidden" label="Masqué" current={T.topbar} onClick={() => update('topbar', 'hidden')} />
+                  {(['normal','slim','hidden'] as const).map((v, i) => (
+                    <Radio key={v} val={v} label={['Normal','Slim','Masqué'][i]} current={radios.topbar}
+                      onClick={() => setRadio('topbar', v)} />
+                  ))}
                 </div>
               </div>
             </div>
