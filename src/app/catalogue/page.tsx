@@ -5,7 +5,12 @@ import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
 import CatalogueContent, { CourseItem } from '@/components/CatalogueContent'
 
-export default async function CataloguePage() {
+export default async function CataloguePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
+  const { q } = await searchParams
   const session = await verifySession()
   const user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return null
@@ -47,6 +52,7 @@ export default async function CataloguePage() {
             parcoursOptions={parcoursOptions}
             formatOptions={formatOptions}
             levelOptions={levelOptions}
+            defaultQuery={q ?? ''}
           />
         </div>
       </div>

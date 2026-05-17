@@ -134,15 +134,9 @@ export default async function CoursPage({
               </div>
             </div>
 
-            {/* Mobile tabs */}
+            {/* Mobile tabs — filled by LessonPanel via React portal */}
             <div id="m-lesson-tabs">
-              <div className="mlt-inner">
-                <button className="mlt-btn active">Vidéo</button>
-                <button className="mlt-btn">Transcription</button>
-                <button className="mlt-btn">Ressources</button>
-                <button className="mlt-btn">Notes</button>
-                <button className="mlt-btn">Sommaire</button>
-              </div>
+              <div id="m-lesson-tabs-container"></div>
             </div>
 
             <div className="lesson-footer">

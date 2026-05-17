@@ -21,12 +21,14 @@ interface Props {
   parcoursOptions: string[]
   formatOptions: string[]
   levelOptions: string[]
+  defaultQuery?: string
 }
 
-export default function CatalogueContent({ courses, parcoursOptions, formatOptions, levelOptions }: Props) {
+export default function CatalogueContent({ courses, parcoursOptions, formatOptions, levelOptions, defaultQuery = '' }: Props) {
   const [selParcours, setSelParcours] = useState(new Set(parcoursOptions))
   const [selFormats, setSelFormats] = useState(new Set(formatOptions))
   const [selLevels, setSelLevels] = useState(new Set(levelOptions))
+  const [query, setQuery] = useState(defaultQuery)
 
   function toggle<T>(set: Set<T>, fn: (s: Set<T>) => void, val: T) {
     const next = new Set(set)
@@ -34,8 +36,12 @@ export default function CatalogueContent({ courses, parcoursOptions, formatOptio
     fn(next)
   }
 
+  const q = query.toLowerCase().trim()
   const filtered = courses.filter(c =>
-    selParcours.has(c.parcours) && selFormats.has(c.format) && selLevels.has(c.level)
+    selParcours.has(c.parcours) &&
+    selFormats.has(c.format) &&
+    selLevels.has(c.level) &&
+    (!q || c.title.toLowerCase().includes(q) || c.speaker.toLowerCase().includes(q) || c.parcours.toLowerCase().includes(q))
   )
 
   return (
@@ -71,7 +77,18 @@ export default function CatalogueContent({ courses, parcoursOptions, formatOptio
             ))}
           </div>
         </div>
-        {filtered.length < courses.length && (
+        <div className="f-section">
+          <div className="f-sec-label">Recherche</div>
+          <input
+            className="f-in"
+            type="text"
+            placeholder="Titre, intervenant…"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{ fontSize: '13px' }}
+          />
+        </div>
+        {(filtered.length < courses.length || query) && (
           <button
             className="link-s"
             style={{ marginTop: '12px', fontSize: '12px' }}
@@ -79,6 +96,7 @@ export default function CatalogueContent({ courses, parcoursOptions, formatOptio
               setSelParcours(new Set(parcoursOptions))
               setSelFormats(new Set(formatOptions))
               setSelLevels(new Set(levelOptions))
+              setQuery('')
             }}
           >
             Tout réinitialiser

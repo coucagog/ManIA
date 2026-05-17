@@ -103,6 +103,32 @@ export async function verify2fa(
   redirect('/dashboard')
 }
 
+export async function resend2fa(
+  _state: { ok?: boolean; code?: string; error?: string } | undefined,
+  _formData: FormData
+): Promise<{ ok?: boolean; code?: string; error?: string }> {
+  const cookieStore = await cookies()
+  const pendingToken = cookieStore.get('pending_2fa')?.value
+  if (!pendingToken) return { error: 'Session expirée. Reconnectez-vous.' }
+
+  const userId = await verifyPendingToken(pendingToken)
+  if (!userId) return { error: 'Session expirée. Reconnectez-vous.' }
+
+  const code = randomCode()
+  const expires = new Date(Date.now() + 10 * 60 * 1000)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { twoFactorCode: code, twoFactorExpires: expires },
+  })
+
+  console.log(`[MANIA 2FA RESEND] Nouveau code: ${code}`)
+
+  return {
+    ok: true,
+    code: process.env.NODE_ENV !== 'production' ? code : undefined,
+  }
+}
+
 export async function logout() {
   await deleteSession()
   redirect('/login')

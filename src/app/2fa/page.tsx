@@ -1,10 +1,11 @@
 'use client'
 
 import { useActionState, useRef } from 'react'
-import { verify2fa } from '@/app/actions/auth'
+import { verify2fa, resend2fa } from '@/app/actions/auth'
 
 export default function TwoFAPage() {
   const [state, action, pending] = useActionState(verify2fa, undefined)
+  const [resendState, resendAction, resendPending] = useActionState(resend2fa, undefined)
   const inputs = useRef<(HTMLInputElement | null)[]>([])
 
   function handleInput(i: number) {
@@ -19,6 +20,9 @@ export default function TwoFAPage() {
     }
   }
 
+  // Show hint from either verify (wrong code) or resend (new code)
+  const devCode = state?.code ?? resendState?.code
+
   return (
     <div className="auth-screen">
       <div className="auth-card">
@@ -32,9 +36,9 @@ export default function TwoFAPage() {
           <p className="auth-sub">Code à 6 chiffres envoyé à votre adresse institutionnelle.</p>
         </div>
 
-        {state?.code && (
+        {devCode && (
           <div className="twofa-hint">
-            Code (dev uniquement) : <strong>{state.code}</strong>
+            Code (dev uniquement) : <strong>{devCode}</strong>
           </div>
         )}
 
@@ -62,7 +66,16 @@ export default function TwoFAPage() {
           </button>
         </form>
 
-        <button className="link-s" type="button">Renvoyer le code</button>
+        <form action={resendAction} style={{ textAlign: 'center' }}>
+          <button type="submit" className="link-s" disabled={resendPending}>
+            {resendPending ? 'Envoi…' : resendState?.ok ? '✓ Code renvoyé' : 'Renvoyer le code'}
+          </button>
+        </form>
+
+        {resendState?.error && (
+          <p className="auth-error" style={{ textAlign: 'center' }}>{resendState.error}</p>
+        )}
+
         <p className="auth-note">Authentification confirmée via application MANIA.</p>
       </div>
     </div>
