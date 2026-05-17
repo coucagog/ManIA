@@ -1,0 +1,124 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+
+export type CourseItem = {
+  id: string
+  slug: string
+  title: string
+  speaker: string
+  parcours: string
+  format: string
+  duration: number
+  level: string
+  thumbClass: string
+  progress: number
+}
+
+interface Props {
+  courses: CourseItem[]
+  parcoursOptions: string[]
+  formatOptions: string[]
+  levelOptions: string[]
+}
+
+export default function CatalogueContent({ courses, parcoursOptions, formatOptions, levelOptions }: Props) {
+  const [selParcours, setSelParcours] = useState(new Set(parcoursOptions))
+  const [selFormats, setSelFormats] = useState(new Set(formatOptions))
+  const [selLevels, setSelLevels] = useState(new Set(levelOptions))
+
+  function toggle<T>(set: Set<T>, fn: (s: Set<T>) => void, val: T) {
+    const next = new Set(set)
+    next.has(val) ? next.delete(val) : next.add(val)
+    fn(next)
+  }
+
+  const filtered = courses.filter(c =>
+    selParcours.has(c.parcours) && selFormats.has(c.format) && selLevels.has(c.level)
+  )
+
+  return (
+    <div className="cat-body">
+      <div className="filter-panel">
+        <div className="f-section">
+          <div className="f-sec-label">Parcours</div>
+          <div className="f-opts">
+            {parcoursOptions.map(p => (
+              <div key={p} className="f-opt" onClick={() => toggle(selParcours, setSelParcours, p)} style={{ cursor: 'pointer' }}>
+                <div className={`f-box${selParcours.has(p) ? ' on' : ''}`}>{selParcours.has(p) ? '✓' : ''}</div> {p}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="f-section">
+          <div className="f-sec-label">Format</div>
+          <div className="f-opts">
+            {formatOptions.map(f => (
+              <div key={f} className="f-opt" onClick={() => toggle(selFormats, setSelFormats, f)} style={{ cursor: 'pointer' }}>
+                <div className={`f-box${selFormats.has(f) ? ' on' : ''}`}>{selFormats.has(f) ? '✓' : ''}</div> {f}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="f-section">
+          <div className="f-sec-label">Niveau</div>
+          <div className="f-opts">
+            {levelOptions.map(l => (
+              <div key={l} className="f-opt" onClick={() => toggle(selLevels, setSelLevels, l)} style={{ cursor: 'pointer' }}>
+                <div className={`f-box${selLevels.has(l) ? ' on' : ''}`}>{selLevels.has(l) ? '✓' : ''}</div> {l}
+              </div>
+            ))}
+          </div>
+        </div>
+        {filtered.length < courses.length && (
+          <button
+            className="link-s"
+            style={{ marginTop: '12px', fontSize: '12px' }}
+            onClick={() => {
+              setSelParcours(new Set(parcoursOptions))
+              setSelFormats(new Set(formatOptions))
+              setSelLevels(new Set(levelOptions))
+            }}
+          >
+            Tout réinitialiser
+          </button>
+        )}
+      </div>
+
+      <div className="cg">
+        {filtered.length === 0 && (
+          <p style={{ color: 'var(--muted)', fontSize: '14px', gridColumn: '1/-1', paddingTop: '32px' }}>
+            Aucun cours correspond à ces filtres.
+          </p>
+        )}
+        {filtered.map(course => {
+          const inProg = course.progress > 0 && course.progress < 100
+          const done = course.progress === 100
+          return (
+            <Link key={course.id} href={`/cours/${course.slug}`} className="cc">
+              <div className={`cc-thumb ${course.thumbClass}`}>
+                <div className="cc-thumb-lbl">{course.parcours}</div>
+                <span className={`cc-badge${inProg ? ' inprog' : ''}`}>
+                  {inProg ? 'En cours' : done ? '✓ Terminé' : course.format}
+                </span>
+              </div>
+              <div className="cc-body">
+                <div className="cc-title">{course.title}</div>
+                <div className="cc-speaker">par {course.speaker}</div>
+                <div className="cc-meta">
+                  {course.duration} min <span className="cc-dot">·</span> {course.level}
+                </div>
+                {course.progress > 0 && (
+                  <div className="cc-prog">
+                    <div className="cc-prog-fill" style={{ width: `${course.progress}%` }}></div>
+                  </div>
+                )}
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
