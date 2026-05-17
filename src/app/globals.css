@@ -36,6 +36,9 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Hide Next.js dev overlay indicators */
+nextjs-portal, [data-issues], [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }
+
 html, body {
   height: 100%;
   font-family: var(--sans);
