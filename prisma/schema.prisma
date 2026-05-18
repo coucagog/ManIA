@@ -71,3 +71,29 @@ model Note {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 }
+
+model Session {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  endDate     DateTime?
+  location    String
+  address     String?
+  description String?
+  instructor  String
+  maxSeats    Int?
+  status      String   @default("upcoming")  // upcoming | past | cancelled
+  createdAt   DateTime @default(now())
+}
+
+model Expert {
+  id          String   @id @default(cuid())
+  name        String
+  title       String
+  institution String?
+  bio         String?
+  photoUrl    String?
+  speakerKey  String?  // matches Course.speaker for auto-linking
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
