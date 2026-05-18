@@ -18,11 +18,12 @@ export async function createExpert(_state: { error?: string; ok?: boolean } | un
   const bio = (formData.get('bio') as string | null)?.trim() || null
   const photoUrl = (formData.get('photoUrl') as string | null)?.trim() || null
   const speakerKey = (formData.get('speakerKey') as string | null)?.trim() || null
+  const userId = (formData.get('userId') as string | null)?.trim() || null
   const order = parseInt(formData.get('order') as string) || 0
 
   if (!name || !title) return { error: 'Nom et titre requis.' }
 
-  const e = await prisma.expert.create({ data: { name, title, institution, bio, photoUrl, speakerKey, order } })
+  const e = await prisma.expert.create({ data: { name, title, institution, bio, photoUrl, speakerKey, userId, order } })
   revalidatePath('/experts')
   revalidatePath('/admin/experts')
   redirect(`/admin/experts/${e.id}`)
@@ -37,11 +38,12 @@ export async function updateExpert(_state: { error?: string; ok?: boolean } | un
   const bio = (formData.get('bio') as string | null)?.trim() || null
   const photoUrl = (formData.get('photoUrl') as string | null)?.trim() || null
   const speakerKey = (formData.get('speakerKey') as string | null)?.trim() || null
+  const userId = (formData.get('userId') as string | null)?.trim() || null
   const order = parseInt(formData.get('order') as string) || 0
 
   if (!name || !title) return { error: 'Nom et titre requis.' }
 
-  await prisma.expert.update({ where: { id }, data: { name, title, institution, bio, photoUrl, speakerKey, order } })
+  await prisma.expert.update({ where: { id }, data: { name, title, institution, bio, photoUrl, speakerKey, userId, order } })
   revalidatePath('/experts')
   revalidatePath('/admin/experts')
   return { ok: true }

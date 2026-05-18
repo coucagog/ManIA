@@ -20,6 +20,7 @@ model User {
   createdAt         DateTime  @default(now())
   progress          Progress[]
   notes             Note[]
+  experts           Expert[]
 }
 
 model Course {
@@ -104,6 +105,8 @@ model Session {
 
 model Expert {
   id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   name        String
   title       String
   institution String?

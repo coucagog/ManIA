@@ -9,10 +9,11 @@ export default async function AdminExpertPage({ params }: { params: Promise<{ id
   const session = await verifySession()
   if (session.role !== 'admin') redirect('/dashboard')
   const { id } = await params
-  const [admin, expert, courses] = await Promise.all([
+  const [admin, expert, courses, users] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.userId } }),
     prisma.expert.findUnique({ where: { id } }),
     prisma.course.findMany({ select: { speaker: true }, distinct: ['speaker'] }),
+    prisma.user.findMany({ select: { id: true, name: true, email: true, photoUrl: true, initials: true }, orderBy: { name: 'asc' } }),
   ])
   if (!admin) return null
   if (!expert) notFound()
@@ -31,10 +32,16 @@ export default async function AdminExpertPage({ params }: { params: Promise<{ id
           <AdminExpertForm
             mode="edit"
             speakers={speakers}
+            users={users}
             expert={{
-              id: expert.id, name: expert.name, title: expert.title,
-              institution: expert.institution, bio: expert.bio,
-              photoUrl: expert.photoUrl, speakerKey: expert.speakerKey,
+              id: expert.id,
+              userId: expert.userId,
+              name: expert.name,
+              title: expert.title,
+              institution: expert.institution,
+              bio: expert.bio,
+              photoUrl: expert.photoUrl,
+              speakerKey: expert.speakerKey,
               order: expert.order,
             }}
           />
