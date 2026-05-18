@@ -3,6 +3,8 @@
 Serveur : 4 cœurs · 8 Go RAM · 75 Go disque  
 Stack : Docker + Traefik (reverse proxy, TLS automatique Let's Encrypt)
 
+> **Prérequis** : le DNS de `mania.sn` doit pointer vers l'IP du VPS avant le lancement de Traefik (nécessaire pour l'émission du certificat Let's Encrypt).
+
 ---
 
 ## Étape 1 — Mise à jour du serveur
@@ -104,16 +106,12 @@ docker compose logs
 ```bash
 mkdir -p /opt/mania && cd /opt/mania
 git clone https://github.com/coucagog/ManIA.git .
-cd mania-app
 ```
 
 ```bash
 cp .env.production.example .env
-```
-
-```bash
-SECRET=$(openssl rand -base64 64)
-sed -i "s|remplacer-par-une-chaine-aleatoire-de-64-caracteres-minimum|$SECRET|" .env
+SECRET=$(openssl rand -hex 32)
+sed -i "s|SESSION_SECRET=.*|SESSION_SECRET=$SECRET|" .env
 cat .env
 ```
 
@@ -126,7 +124,7 @@ docker compose up -d --build
 ## Étape 6 — Vérifier
 
 ```bash
-docker compose logs -f
+docker compose logs
 ```
 
 Une fois `[MANIA] Starting application...` affiché, ouvrir **https://mania.sn**.  
@@ -137,7 +135,7 @@ Le certificat HTTPS est généré et renouvelé automatiquement par Traefik.
 ## Mises à jour futures
 
 ```bash
-cd /opt/mania/mania-app
+cd /opt/mania
 git pull
 docker compose up -d --build
 ```
@@ -161,8 +159,6 @@ labels:
   - "traefik.http.routers.<nom>.tls.certresolver=letsencrypt"
   - "traefik.http.services.<nom>.loadbalancer.server.port=<port>"
 ```
-
-Puis :
 
 ```bash
 docker compose up -d --build
