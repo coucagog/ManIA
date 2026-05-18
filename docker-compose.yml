@@ -2,16 +2,27 @@ services:
   app:
     build: .
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    networks:
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mania.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.mania.entrypoints=websecure"
+      - "traefik.http.routers.mania.tls=true"
+      - "traefik.http.routers.mania.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mania.loadbalancer.server.port=3000"
     environment:
       DATABASE_URL: "file:/data/prod.db"
       SESSION_SECRET: "${SESSION_SECRET}"
-      NEXTAUTH_URL: "${NEXTAUTH_URL}"
+      NEXTAUTH_URL: "https://${DOMAIN}"
       NODE_ENV: "production"
     volumes:
       - db_data:/data
       - uploads:/app/public/uploads
+
+networks:
+  web:
+    external: true   # réseau créé une fois par Traefik, partagé entre toutes les apps
 
 volumes:
   db_data:
