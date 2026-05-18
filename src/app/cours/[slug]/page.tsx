@@ -58,9 +58,9 @@ export default async function CoursPage({
 
   return (
     <div className="app-shell">
-      <Sidebar active="lesson" initials={user.initials} />
+      <Sidebar active="lesson" initials={user.initials} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher dans la transcription…" initials={user.initials} />
+        <Topbar placeholder="Rechercher dans la transcription…" initials={user.initials} photoUrl={user.photoUrl} />
         <div className="app-body">
 
           {/* TOC */}

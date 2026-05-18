@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
 
-type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'dons' | 'profil' | 'other'; initials: string }
+type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'dons' | 'profil' | 'other'; initials: string; photoUrl?: string | null }
 
-export default function Sidebar({ active, initials }: Props) {
+export default function Sidebar({ active, initials, photoUrl }: Props) {
   return (
     <aside className="sidebar">
       <div className="sb-logo"><span className="man">M</span><span className="ia">IA</span></div>
@@ -41,7 +41,11 @@ export default function Sidebar({ active, initials }: Props) {
       </nav>
       <div className="sb-bot">
         <form action={logout}>
-          <button type="submit" className="avatar" title="Se déconnecter">{initials}</button>
+          <button type="submit" className="avatar" title="Se déconnecter" style={photoUrl ? { padding: 0, overflow: 'hidden' } : {}}>
+            {photoUrl
+              ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+              : initials}
+          </button>
         </form>
       </div>
     </aside>

@@ -17,9 +17,9 @@ export default async function ExpertsPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="experts" initials={user.initials} />
+      <Sidebar active="experts" initials={user.initials} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher un expert…" initials={user.initials} />
+        <Topbar placeholder="Rechercher un expert…" initials={user.initials} photoUrl={user.photoUrl} />
         <div className="page">
 
           <div style={{ marginBottom: '32px' }}>

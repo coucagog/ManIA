@@ -77,9 +77,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="dashboard" initials={user.initials} />
+      <Sidebar active="dashboard" initials={user.initials} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher un cours, un conférencier…" initials={user.initials} />
+        <Topbar placeholder="Rechercher un cours, un conférencier…" initials={user.initials} photoUrl={user.photoUrl} />
         <div className="page">
           <h1 className="greeting">{greeting}, {user.name}.</h1>
 

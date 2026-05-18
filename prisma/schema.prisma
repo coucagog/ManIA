@@ -14,6 +14,7 @@ model User {
   initials          String    @default("??")
   password          String
   role              String    @default("learner")
+  photoUrl          String?
   twoFactorCode     String?
   twoFactorExpires  DateTime?
   createdAt         DateTime  @default(now())

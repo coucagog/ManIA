@@ -28,9 +28,9 @@ export default async function PresentielPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="presentiel" initials={user.initials} />
+      <Sidebar active="presentiel" initials={user.initials} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher une session…" initials={user.initials} />
+        <Topbar placeholder="Rechercher une session…" initials={user.initials} photoUrl={user.photoUrl} />
         <div className="page">
 
           <div style={{ marginBottom: '32px' }}>

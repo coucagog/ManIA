@@ -31,9 +31,9 @@ export default async function DonsPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="dons" initials={user.initials} />
+      <Sidebar active="dons" initials={user.initials} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Dons & soutien…" initials={user.initials} />
+        <Topbar placeholder="Dons & soutien…" initials={user.initials} photoUrl={user.photoUrl} />
         <div className="page">
 
           {/* Hero */}
