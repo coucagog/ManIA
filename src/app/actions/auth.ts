@@ -10,6 +10,7 @@ import {
 import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
+import { sendTwoFactorCode } from '@/lib/mail'
 
 function randomCode() {
   return String(Math.floor(100000 + Math.random() * 900000))
@@ -38,8 +39,12 @@ export async function login(
     data: { twoFactorCode: code, twoFactorExpires: expires },
   })
 
-  // In production: send code by email. For dev, it is shown on the 2FA page.
   console.log(`[MANIA 2FA] Code pour ${email}: ${code}`)
+  if (process.env.SMTP_HOST) {
+    await sendTwoFactorCode(email, code).catch((err) =>
+      console.error('[MANIA 2FA] Échec envoi email:', err.message)
+    )
+  }
 
   const pendingToken = await createPendingToken(user.id)
   const cookieStore = await cookies()
@@ -122,6 +127,14 @@ export async function resend2fa(
   })
 
   console.log(`[MANIA 2FA RESEND] Nouveau code: ${code}`)
+  if (process.env.SMTP_HOST) {
+    const user2 = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } })
+    if (user2) {
+      await sendTwoFactorCode(user2.email, code).catch((err) =>
+        console.error('[MANIA 2FA] Échec renvoi email:', err.message)
+      )
+    }
+  }
 
   return {
     ok: true,
