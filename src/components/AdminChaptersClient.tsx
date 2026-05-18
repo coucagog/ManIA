@@ -84,6 +84,27 @@ function ChapterRow({ chapter, courseId, isFirst, isLast, editing, onEdit }: {
 }) {
   const [state, action, pending] = useActionState(updateChapter, undefined)
   const [tab, setTab] = useState<'infos' | 'ressources'>('infos')
+  const videoUrlRef = useRef<HTMLInputElement>(null)
+  const [videoUploading, setVideoUploading] = useState(false)
+  const [videoUploadedName, setVideoUploadedName] = useState<string | null>(null)
+
+  async function handleVideoFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setVideoUploading(true)
+    setVideoUploadedName(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (videoUrlRef.current) videoUrlRef.current.value = json.url
+      setVideoUploadedName(file.name)
+    } catch {
+      alert('Erreur lors de l\'upload.')
+    }
+    setVideoUploading(false)
+  }
 
   return (
     <div style={{ borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
@@ -155,12 +176,34 @@ function ChapterRow({ chapter, courseId, isFirst, isLast, editing, onEdit }: {
 
               <div>
                 <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>URL vidéo / audio</label>
-                <input
-                  className="f-in" name="videoUrl" defaultValue={chapter.videoUrl ?? ''}
-                  placeholder="YouTube, Vimeo, .mp4, .mp3…"
-                  style={{ width: '100%', fontSize: '13px' }}
-                />
-                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>YouTube, Vimeo ou lien direct vers un fichier hébergé.</div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <input
+                    ref={videoUrlRef}
+                    className="f-in" name="videoUrl" defaultValue={chapter.videoUrl ?? ''}
+                    placeholder="YouTube, Vimeo, lien .mp4 / .mp3…"
+                    style={{ flex: 1, fontSize: '13px' }}
+                  />
+                  <label style={{
+                    display: 'flex', alignItems: 'center', gap: '4px',
+                    fontSize: '12px', padding: '0 10px', height: '36px',
+                    background: videoUploading ? 'var(--inset)' : 'var(--inset)',
+                    border: '1px solid var(--border)', borderRadius: 'var(--r-sm)',
+                    cursor: videoUploading ? 'default' : 'pointer', whiteSpace: 'nowrap',
+                    color: 'var(--muted)',
+                  }}>
+                    {videoUploading ? '…' : '↑ Fichier'}
+                    <input
+                      type="file" accept="video/*,audio/*,.mp4,.mp3,.webm,.mov,.m4a,.wav,.ogg"
+                      onChange={handleVideoFile}
+                      disabled={videoUploading}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+                {videoUploadedName && (
+                  <div style={{ fontSize: '11px', color: 'var(--coral)', marginTop: '3px' }}>✓ {videoUploadedName} uploadé</div>
+                )}
+                <div style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '3px' }}>YouTube, Vimeo, lien direct ou fichier local.</div>
               </div>
 
               <div>
