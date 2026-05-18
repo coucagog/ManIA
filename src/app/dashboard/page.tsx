@@ -6,6 +6,14 @@ import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
 import Link from 'next/link'
 
+function fmtDay(d: Date | string) {
+  return new Date(d as unknown as string).toLocaleDateString('fr-FR', { day: '2-digit' })
+}
+function fmtMonthYear(d: Date | string) {
+  const date = new Date(d as unknown as string)
+  return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
 export default async function DashboardPage() {
   const session = await verifySession()
   const user = await prisma.user.findUnique({
@@ -20,10 +28,16 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  const allCourses = await prisma.course.findMany({
-    orderBy: { createdAt: 'asc' },
-    include: { chapters: { orderBy: { order: 'asc' } } },
-  })
+  const [allCourses, nextSession] = await Promise.all([
+    prisma.course.findMany({
+      orderBy: { createdAt: 'asc' },
+      include: { chapters: { orderBy: { order: 'asc' } } },
+    }),
+    prisma.session.findFirst({
+      where: { status: 'upcoming' },
+      orderBy: { date: 'asc' },
+    }),
+  ])
 
   // In-progress: has progress, not 100%, sorted by most recent
   const inProgress = user.progress.find(p => p.percentage > 0 && p.percentage < 100)
@@ -52,6 +66,16 @@ export default async function DashboardPage() {
     pct: Math.round((done / total) * 100),
   }))
 
+  // Recommendation: a course the user hasn't completed, different from the current one
+  const completedIds = new Set(user.progress.filter(p => p.percentage === 100).map(p => p.courseId))
+  const candidates = allCourses.filter(c => !completedIds.has(c.id) && c.id !== resumeCourse?.id)
+  // Prefer same parcours as in-progress, then any not started
+  const recommendation =
+    candidates.find(c => c.parcours === inProgress?.course.parcours && !user.progress.find(p => p.courseId === c.id)) ??
+    candidates.find(c => !user.progress.find(p => p.courseId === c.id)) ??
+    candidates[0] ??
+    null
+
   // Activity feed from real progress data
   const activities = user.progress
     .filter(p => p.percentage > 0)
@@ -77,7 +101,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="dashboard" initials={user.initials} photoUrl={user.photoUrl} />
+      <Sidebar active="dashboard" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
       <div className="main">
         <Topbar placeholder="Rechercher un cours, un conférencier…" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
         <div className="page">
@@ -111,34 +135,74 @@ export default async function DashboardPage() {
           )}
 
           <div className="sec-grid">
+
+            {/* Prochaine session — dynamique */}
             <div className="sec-card">
               <span className="sec-label">Prochaine session</span>
-              <div className="date-big">12</div>
-              <div className="date-month">Juin 2025 · Paris</div>
-              <div className="sec-title">Souveraineté numérique et IA agentique</div>
-              <div className="sec-meta">par Pr. Ibrahim Al-Mansouri · Amphithéâtre Condorcet</div>
-              <button className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '9px 16px', fontSize: '12px' }}>Préparer</button>
+              {nextSession ? (
+                <>
+                  <div className="date-big">{fmtDay(nextSession.date)}</div>
+                  <div className="date-month" style={{ textTransform: 'capitalize' }}>
+                    {fmtMonthYear(nextSession.date)}{nextSession.location ? ` · ${nextSession.location}` : ''}
+                  </div>
+                  <div className="sec-title">{nextSession.title}</div>
+                  <div className="sec-meta">
+                    par {nextSession.instructor}{nextSession.address ? ` · ${nextSession.address}` : ''}
+                  </div>
+                  <Link href="/presentiel" className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '9px 16px', fontSize: '12px' }}>
+                    Préparer
+                  </Link>
+                </>
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.6 }}>
+                  Aucune session programmée pour le moment.<br />
+                  <Link href="/presentiel" style={{ color: 'var(--coral)', fontSize: '12px' }}>Voir l&apos;agenda →</Link>
+                </div>
+              )}
             </div>
 
+            {/* Progression globale — déjà dynamique */}
             <div className="sec-card">
               <span className="sec-label">Progression globale</span>
-              <div className="mini-progs">
-                {parcoursList.map(p => (
-                  <div key={p.name} className="mp-row">
-                    <div className="mp-hd"><span>{p.name}</span><span>{p.pct} %</span></div>
-                    <div className="mp-bar"><div className="mp-fill" style={{ width: `${p.pct}%` }}></div></div>
-                  </div>
-                ))}
-              </div>
+              {parcoursList.length > 0 ? (
+                <div className="mini-progs">
+                  {parcoursList.map(p => (
+                    <div key={p.name} className="mp-row">
+                      <div className="mp-hd"><span>{p.name}</span><span>{p.pct} %</span></div>
+                      <div className="mp-bar"><div className="mp-fill" style={{ width: `${p.pct}%` }}></div></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: '13px' }}>Aucun cours disponible.</div>
+              )}
             </div>
 
+            {/* Recommandation — dynamique */}
             <div className="sec-card">
               <span className="sec-label">Recommandation</span>
-              <div className="sec-title">Évaluation des risques dans les systèmes d&apos;IA autonomes</div>
-              <div className="sec-meta">En lien avec votre dernier module sur l&apos;orchestration multi-agents.</div>
-              <div className="sec-meta" style={{ fontSize: '12px' }}>par Dr. Amara Ndiaye · 42 min · Vidéo</div>
-              <Link href="/catalogue" className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '9px 16px', fontSize: '12px' }}>Voir le cours</Link>
+              {recommendation ? (
+                <>
+                  <div className="sec-title">{recommendation.title}</div>
+                  <div className="sec-meta">
+                    {inProgress
+                      ? `En lien avec votre parcours ${inProgress.course.parcours}.`
+                      : `Pour démarrer votre parcours ${recommendation.parcours}.`}
+                  </div>
+                  <div className="sec-meta" style={{ fontSize: '12px' }}>
+                    par {recommendation.speaker} · {recommendation.duration} min · {recommendation.format}
+                  </div>
+                  <Link href={`/cours/${recommendation.slug}`} className="btn-ghost" style={{ alignSelf: 'flex-start', padding: '9px 16px', fontSize: '12px' }}>
+                    Voir le cours
+                  </Link>
+                </>
+              ) : (
+                <div style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.6 }}>
+                  Félicitations — vous avez complété tous les cours disponibles !
+                </div>
+              )}
             </div>
+
           </div>
 
           {activities.length > 0 && (
