@@ -27,9 +27,9 @@ export default async function MesCoursPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="lesson" initials={user.initials} photoUrl={user.photoUrl} />
+      <Sidebar active="lesson" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher un cours…" initials={user.initials} photoUrl={user.photoUrl} />
+        <Topbar placeholder="Rechercher un cours…" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
         <div className="page">
           <h1 className="cat-title" style={{ marginBottom: '8px' }}>Mes cours</h1>
           <p className="cat-sub" style={{ marginBottom: '28px' }}>

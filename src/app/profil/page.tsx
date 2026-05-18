@@ -34,9 +34,9 @@ export default async function ProfilPage() {
 
   return (
     <div className="app-shell">
-      <Sidebar active="profil" initials={user.initials} photoUrl={user.photoUrl} />
+      <Sidebar active="profil" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher…" initials={user.initials} photoUrl={user.photoUrl} />
+        <Topbar placeholder="Rechercher…" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
         <div className="page">
 
           {/* Hero */}

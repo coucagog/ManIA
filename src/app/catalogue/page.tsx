@@ -39,9 +39,9 @@ export default async function CataloguePage({
 
   return (
     <div className="app-shell">
-      <Sidebar active="catalog" initials={user.initials} photoUrl={user.photoUrl} />
+      <Sidebar active="catalog" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
       <div className="main">
-        <Topbar placeholder="Rechercher dans le catalogue…" initials={user.initials} photoUrl={user.photoUrl} />
+        <Topbar placeholder="Rechercher dans le catalogue…" initials={user.initials} name={user.name} photoUrl={user.photoUrl} />
         <div className="page">
           <div className="cat-hd">
             <h1 className="cat-title">Catalogue</h1>

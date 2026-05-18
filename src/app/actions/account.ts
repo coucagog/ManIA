@@ -17,7 +17,7 @@ export async function updateProfile(
 
   const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || '??'
   await prisma.user.update({ where: { id: session.userId }, data: { name, initials, photoUrl } })
-  revalidatePath('/profil')
+  revalidatePath('/', 'layout')
   return { ok: true }
 }
 

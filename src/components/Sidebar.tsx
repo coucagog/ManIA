@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
 
-type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'dons' | 'profil' | 'other'; initials: string; photoUrl?: string | null }
+type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'dons' | 'profil' | 'other'; initials: string; name?: string; photoUrl?: string | null }
 
 export default function Sidebar({ active, initials, photoUrl }: Props) {
   return (
