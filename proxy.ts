@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { decrypt } from '@/lib/session'
 import { cookies } from 'next/headers'
 
-const protectedRoutes = ['/dashboard', '/cours', '/catalogue', '/profil', '/presentiel', '/experts']
+const protectedRoutes = ['/dashboard', '/cours', '/catalogue', '/profil', '/presentiel', '/experts', '/dons']
 const adminRoutes = ['/admin']
 const publicRoutes = ['/login', '/2fa']
 

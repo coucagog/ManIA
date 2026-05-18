@@ -108,7 +108,18 @@ model Expert {
   institution String?
   bio         String?
   photoUrl    String?
-  speakerKey  String?  // matches Course.speaker for auto-linking
+  speakerKey  String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model DonationMethod {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  qrUrl       String?
+  description String?
+  active      Boolean  @default(true)
   order       Int      @default(0)
   createdAt   DateTime @default(now())
 }
