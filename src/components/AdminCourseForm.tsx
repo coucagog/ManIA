@@ -11,10 +11,8 @@ type CourseData = {
 type Props = { mode: 'create' } | { mode: 'edit'; course: CourseData }
 
 export default function AdminCourseForm(props: Props) {
-  const [state, action, pending] = useActionState(
-    props.mode === 'create' ? createCourse : updateCourse,
-    undefined
-  )
+  const fn = props.mode === 'create' ? createCourse : updateCourse
+  const [state, action, pending] = useActionState<{ error?: string; ok?: boolean } | undefined, FormData>(fn, undefined)
   const c = props.mode === 'edit' ? props.course : null
 
   return (

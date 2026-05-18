@@ -9,12 +9,11 @@ type SessionData = {
   location: string; address?: string | null; description?: string | null
   instructor: string; maxSeats?: number | null; status: string
 }
-type Props = { mode: 'create' } | { mode: 'edit'; session: SessionData }
+type Props = { mode: 'create'; experts: string[] } | { mode: 'edit'; session: SessionData; experts: string[] }
 
 export default function AdminSessionForm(props: Props) {
-  const [state, action, pending] = useActionState(
-    props.mode === 'create' ? createSession : updateSession, undefined
-  )
+  const fn = props.mode === 'create' ? createSession : updateSession
+  const [state, action, pending] = useActionState<{ error?: string; ok?: boolean } | undefined, FormData>(fn, undefined)
   const s = props.mode === 'edit' ? props.session : null
 
   return (
@@ -33,7 +32,18 @@ export default function AdminSessionForm(props: Props) {
           </div>
           <Field label="Lieu (salle, ville)" name="location" defaultValue={s?.location} required />
           <Field label="Adresse complète (optionnel)" name="address" defaultValue={s?.address ?? ''} />
-          <Field label="Intervenant" name="instructor" defaultValue={s?.instructor} required />
+          <div>
+            <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Intervenant</label>
+            <input
+              className="f-in" name="instructor" list="experts-list"
+              defaultValue={s?.instructor} required
+              placeholder="Nom ou choisir parmi les experts…"
+              style={{ width: '100%', fontSize: '13px' }}
+            />
+            <datalist id="experts-list">
+              {props.experts.map(e => <option key={e} value={e} />)}
+            </datalist>
+          </div>
           <div>
             <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Description</label>
             <textarea className="notes-ta" name="description" defaultValue={s?.description ?? ''} placeholder="Programme, objectifs, prérequis…" style={{ fontSize: '13px', minHeight: '90px' }} />

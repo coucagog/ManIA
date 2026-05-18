@@ -23,8 +23,8 @@ export default async function PresentielPage() {
 
   const all = await prisma.session.findMany({ orderBy: { date: 'asc' } })
   const now = new Date()
-  const upcoming = all.filter(s => s.status !== 'cancelled' && new Date(s.date as unknown as string) >= now)
-  const past = all.filter(s => s.status === 'past' || new Date(s.date as unknown as string) < now).reverse()
+  const upcoming = all.filter(s => s.status === 'upcoming')
+  const past = all.filter(s => s.status === 'past' || (s.status !== 'upcoming' && s.status !== 'cancelled' && new Date(s.date as unknown as string) < now)).reverse()
 
   return (
     <div className="app-shell">

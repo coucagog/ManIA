@@ -10,7 +10,7 @@ async function requireAdmin() {
   if (session.role !== 'admin') redirect('/dashboard')
 }
 
-export async function createExpert(_state: { error?: string } | undefined, formData: FormData) {
+export async function createExpert(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const name = (formData.get('name') as string).trim()
   const title = (formData.get('title') as string).trim()
@@ -28,7 +28,7 @@ export async function createExpert(_state: { error?: string } | undefined, formD
   redirect(`/admin/experts/${e.id}`)
 }
 
-export async function updateExpert(_state: { error?: string; ok?: boolean } | undefined, formData: FormData) {
+export async function updateExpert(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const id = formData.get('id') as string
   const name = (formData.get('name') as string).trim()

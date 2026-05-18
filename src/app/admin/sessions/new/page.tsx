@@ -8,8 +8,12 @@ import Link from 'next/link'
 export default async function NewSessionPage() {
   const session = await verifySession()
   if (session.role !== 'admin') redirect('/dashboard')
-  const admin = await prisma.user.findUnique({ where: { id: session.userId } })
+  const [admin, experts] = await Promise.all([
+    prisma.user.findUnique({ where: { id: session.userId } }),
+    prisma.expert.findMany({ orderBy: [{ order: 'asc' }, { name: 'asc' }] }),
+  ])
   if (!admin) return null
+  const expertNames = experts.map(e => e.name)
 
   return (
     <div className="app-shell">
@@ -21,7 +25,7 @@ export default async function NewSessionPage() {
             <span style={{ color: 'var(--border)' }}>|</span>
             <h1 style={{ fontSize: '22px', fontWeight: 600 }}>Nouvelle session</h1>
           </div>
-          <AdminSessionForm mode="create" />
+          <AdminSessionForm mode="create" experts={expertNames} />
         </div>
       </div>
     </div>

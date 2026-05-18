@@ -10,7 +10,7 @@ async function requireAdmin() {
   if (session.role !== 'admin') redirect('/dashboard')
 }
 
-export async function createSession(_state: { error?: string } | undefined, formData: FormData) {
+export async function createSession(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const title = (formData.get('title') as string).trim()
   const date = formData.get('date') as string
@@ -36,7 +36,7 @@ export async function createSession(_state: { error?: string } | undefined, form
   redirect(`/admin/sessions/${s.id}`)
 }
 
-export async function updateSession(_state: { error?: string; ok?: boolean } | undefined, formData: FormData) {
+export async function updateSession(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const id = formData.get('id') as string
   const title = (formData.get('title') as string).trim()

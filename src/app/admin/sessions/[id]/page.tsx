@@ -16,12 +16,14 @@ export default async function AdminSessionPage({ params }: { params: Promise<{ i
   const session = await verifySession()
   if (session.role !== 'admin') redirect('/dashboard')
   const { id } = await params
-  const [admin, s] = await Promise.all([
+  const [admin, s, experts] = await Promise.all([
     prisma.user.findUnique({ where: { id: session.userId } }),
     prisma.session.findUnique({ where: { id } }),
+    prisma.expert.findMany({ orderBy: [{ order: 'asc' }, { name: 'asc' }] }),
   ])
   if (!admin) return null
   if (!s) notFound()
+  const expertNames = experts.map(e => e.name)
 
   return (
     <div className="app-shell">
@@ -35,6 +37,7 @@ export default async function AdminSessionPage({ params }: { params: Promise<{ i
           </div>
           <AdminSessionForm
             mode="edit"
+            experts={expertNames}
             session={{
               id: s.id, title: s.title,
               date: toLocalInput(s.date),

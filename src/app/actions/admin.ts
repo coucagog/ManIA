@@ -73,7 +73,7 @@ export async function deleteUser(formData: FormData) {
 
 // ── Courses ──────────────────────────────────────────────────────────────
 
-export async function createCourse(_state: { error?: string } | undefined, formData: FormData) {
+export async function createCourse(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const title = (formData.get('title') as string).trim()
   const slug = (formData.get('slug') as string).trim().toLowerCase().replace(/\s+/g, '-')
@@ -94,7 +94,7 @@ export async function createCourse(_state: { error?: string } | undefined, formD
   redirect(`/admin/cours/${course.id}`)
 }
 
-export async function updateCourse(_state: { error?: string; ok?: boolean } | undefined, formData: FormData) {
+export async function updateCourse(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
   await requireAdmin()
   const id = formData.get('id') as string
   const title = (formData.get('title') as string).trim()

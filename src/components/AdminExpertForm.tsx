@@ -11,9 +11,8 @@ type ExpertData = {
 type Props = { mode: 'create'; speakers: string[] } | { mode: 'edit'; expert: ExpertData; speakers: string[] }
 
 export default function AdminExpertForm(props: Props) {
-  const [state, action, pending] = useActionState(
-    props.mode === 'create' ? createExpert : updateExpert, undefined
-  )
+  const fn = props.mode === 'create' ? createExpert : updateExpert
+  const [state, action, pending] = useActionState<{ error?: string; ok?: boolean } | undefined, FormData>(fn, undefined)
   const e = props.mode === 'edit' ? props.expert : null
 
   return (
