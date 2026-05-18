@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "file:/data/prod.db"
+      SESSION_SECRET: "${SESSION_SECRET}"
+      NEXTAUTH_URL: "${NEXTAUTH_URL}"
+      NODE_ENV: "production"
+    volumes:
+      - db_data:/data
+      - uploads:/app/public/uploads
+
+volumes:
+  db_data:
+  uploads:
