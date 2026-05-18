@@ -37,14 +37,29 @@ model Course {
 }
 
 model Chapter {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   courseId  String
   title     String
   duration  Int
   format    String
   order     Int
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  videoUrl  String?
+  content   String?
+  course    Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
   notes     Note[]
+  resources ChapterResource[]
+}
+
+model ChapterResource {
+  id        String   @id @default(cuid())
+  chapterId String
+  name      String
+  fileType  String   @default("file")
+  url       String
+  fileSize  Int?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 }
 
 model Progress {

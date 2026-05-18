@@ -150,11 +150,14 @@ export async function updateChapter(_state: { error?: string; ok?: boolean } | u
   const title = (formData.get('title') as string).trim()
   const duration = parseInt(formData.get('duration') as string) || 0
   const format = (formData.get('format') as string).trim() || 'Vidéo'
+  const videoUrl = (formData.get('videoUrl') as string)?.trim() || null
+  const content = (formData.get('content') as string)?.trim() || null
 
   if (!title) return { error: 'Titre requis.' }
 
-  await prisma.chapter.update({ where: { id }, data: { title, duration, format } })
+  await prisma.chapter.update({ where: { id }, data: { title, duration, format, videoUrl, content } })
   revalidatePath(`/admin/cours/${courseId}`)
+  revalidatePath('/cours')
   return { ok: true }
 }
 
@@ -185,5 +188,28 @@ export async function moveChapter(formData: FormData) {
   const a = chapters[idx], b = chapters[swapIdx]
   await prisma.chapter.update({ where: { id: a.id }, data: { order: b.order } })
   await prisma.chapter.update({ where: { id: b.id }, data: { order: a.order } })
+  revalidatePath(`/admin/cours/${courseId}`)
+}
+
+// ── Chapter Resources ─────────────────────────────────────────────────────
+
+export async function createResource(formData: FormData) {
+  await requireAdmin()
+  const chapterId = formData.get('chapterId') as string
+  const courseId = formData.get('courseId') as string
+  const name = (formData.get('name') as string)?.trim()
+  const url = (formData.get('url') as string)?.trim()
+  const fileType = (formData.get('fileType') as string)?.trim() || 'file'
+  const fileSize = formData.get('fileSize') ? parseInt(formData.get('fileSize') as string) : null
+  if (!name || !url) return
+  await prisma.chapterResource.create({ data: { chapterId, name, url, fileType, fileSize } })
+  revalidatePath(`/admin/cours/${courseId}`)
+}
+
+export async function deleteResource(formData: FormData) {
+  await requireAdmin()
+  const id = formData.get('id') as string
+  const courseId = formData.get('courseId') as string
+  await prisma.chapterResource.delete({ where: { id } })
   revalidatePath(`/admin/cours/${courseId}`)
 }

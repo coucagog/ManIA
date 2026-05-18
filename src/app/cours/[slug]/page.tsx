@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
 import LessonPanel from '@/components/LessonPanel'
+import VideoPlayer from '@/components/VideoPlayer'
 import Link from 'next/link'
 import { markChapterDone } from '@/app/actions/progress'
 
@@ -24,7 +25,7 @@ export default async function CoursPage({
 
   const course = await prisma.course.findUnique({
     where: { slug },
-    include: { chapters: { orderBy: { order: 'asc' } } },
+    include: { chapters: { include: { resources: { orderBy: { order: 'asc' } } }, orderBy: { order: 'asc' } } },
   })
   if (!course) notFound()
 
@@ -102,37 +103,7 @@ export default async function CoursPage({
             </div>
 
             {/* Player */}
-            <div className="player">
-              <div className="player-screen">
-                <button className="play-btn" id="play-btn">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
-                    <polygon points="5,3 19,12 5,21"/>
-                  </svg>
-                </button>
-                <div className="vid-overlay">{activeChapter?.title} — {course.parcours} · MANIA</div>
-              </div>
-              <div className="vid-ctrls">
-                <div className="prog-row">
-                  <span className="vid-time">00:00</span>
-                  <div className="vid-prog"><div className="vid-prog-fill" style={{ width: '0%' }}></div></div>
-                  <span className="vid-time">{activeChapter?.duration}:00</span>
-                </div>
-                <div className="ctrl-row">
-                  <button className="c-btn">−10s</button>
-                  <button className="c-btn">+10s</button>
-                  <div style={{ width: '1px', height: '20px', background: 'var(--border)', margin: '0 4px' }}></div>
-                  <button className="c-btn sp-btn">0.75×</button>
-                  <button className="c-btn sp-btn on">1×</button>
-                  <button className="c-btn sp-btn">1.25×</button>
-                  <button className="c-btn sp-btn">1.5×</button>
-                  <button className="c-btn sp-btn">2×</button>
-                  <div className="sp"></div>
-                  <button className="c-btn">FR</button>
-                  <button className="c-btn active">⛶</button>
-                  <button className="c-btn">⧉</button>
-                </div>
-              </div>
-            </div>
+            <VideoPlayer url={activeChapter?.videoUrl ?? null} title={`${activeChapter?.title ?? ''} — ${course.parcours} · MANIA`} />
 
             {/* Mobile tabs — filled by LessonPanel via React portal */}
             <div id="m-lesson-tabs">
@@ -177,6 +148,8 @@ export default async function CoursPage({
               chapterId={activeChapter.id}
               slug={slug}
               chapterTitle={activeChapter.title}
+              content={activeChapter.content ?? null}
+              resources={activeChapter.resources}
             />
           )}
         </div>

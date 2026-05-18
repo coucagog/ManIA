@@ -7,14 +7,25 @@ import { saveNote } from '@/app/actions/notes'
 type PanelTab = 'transcript' | 'ressources' | 'notes'
 type MobileTab = 'video' | PanelTab
 
+type Resource = { id: string; name: string; fileType: string; url: string; fileSize: number | null }
+
 interface Props {
   noteContent: string
   chapterId: string
   slug: string
   chapterTitle: string
+  content: string | null
+  resources: Resource[]
 }
 
-export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle }: Props) {
+function fmtSize(bytes: number | null) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`
+  return `${(bytes / 1024 / 1024).toFixed(1)} Mo`
+}
+
+export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle, content, resources }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('transcript')
   const [mobileTab, setMobileTab] = useState<MobileTab>('video')
   const [noteState, noteAction, notePending] = useActionState(saveNote, undefined)
@@ -77,46 +88,41 @@ export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle
         <div className="p-content">
           {activeTab === 'transcript' && (
             <div className="tab-pane active">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--muted)' }}>Suivre la lecture</span>
-                <button className="c-btn" style={{ fontSize: '11px', padding: '5px 10px' }}>Lire sans la vidéo</button>
-              </div>
-              <div className="tr-para">
-                <div className="tr-ts">00:00</div>
-                Dans ce chapitre, nous allons examiner les concepts fondamentaux abordés dans <em>{chapterTitle}</em>.
-              </div>
-              <div className="tr-para">
-                <div className="tr-ts">01:24</div>
-                La question centrale est celle de la coordination des systèmes dans des environnements institutionnels fermés.
-              </div>
-              <div className="tr-para cur">
-                <div className="tr-ts">04:38</div>
-                L&apos;orchestrateur joue ici un rôle clé dans la gestion des décisions et la traçabilité.
-              </div>
+              {content ? (
+                <div style={{ fontSize: '13px', lineHeight: 1.75, color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>
+                  {content}
+                </div>
+              ) : (
+                <p style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic', marginTop: '8px' }}>
+                  Le contenu de ce chapitre sera disponible prochainement.
+                </p>
+              )}
             </div>
           )}
 
           {activeTab === 'ressources' && (
             <div className="tab-pane active">
-              <div className="res-item">
-                <div className="res-icon">PDF</div>
-                <div>
-                  <div className="res-name">Cadre méthodologique — {chapterTitle}</div>
-                  <div className="res-size">320 Ko</div>
-                </div>
-                <span className="res-dl">↓ Télécharger</span>
-              </div>
-              <div className="res-item">
-                <div className="res-icon">PDF</div>
-                <div>
-                  <div className="res-name">Fiche de synthèse</div>
-                  <div className="res-size">88 Ko</div>
-                </div>
-                <span className="res-dl">↓ Télécharger</span>
-              </div>
-              <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '16px', lineHeight: 1.5 }}>
-                Toutes les ressources sont confidentielles et réservées aux apprenants MANIA.
-              </p>
+              {resources.length > 0 ? (
+                <>
+                  {resources.map(r => (
+                    <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="res-item" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+                      <div className="res-icon">{r.fileType}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="res-name">{r.name}</div>
+                        {r.fileSize && <div className="res-size">{fmtSize(r.fileSize)}</div>}
+                      </div>
+                      <span className="res-dl">↓</span>
+                    </a>
+                  ))}
+                  <p style={{ fontSize: '11px', color: 'var(--muted)', marginTop: '16px', lineHeight: 1.5 }}>
+                    Ressources confidentielles réservées aux apprenants MANIA.
+                  </p>
+                </>
+              ) : (
+                <p style={{ fontSize: '13px', color: 'var(--muted)', fontStyle: 'italic', marginTop: '8px' }}>
+                  Aucune ressource pour ce chapitre.
+                </p>
+              )}
             </div>
           )}
 

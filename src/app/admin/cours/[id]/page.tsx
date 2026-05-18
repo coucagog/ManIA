@@ -15,7 +15,7 @@ export default async function AdminCoursePage({ params }: { params: Promise<{ id
     prisma.user.findUnique({ where: { id: session.userId } }),
     prisma.course.findUnique({
       where: { id },
-      include: { chapters: { orderBy: { order: 'asc' } } },
+      include: { chapters: { include: { resources: { orderBy: { order: 'asc' } } }, orderBy: { order: 'asc' } } },
     }),
   ])
   if (!admin) return null
@@ -47,6 +47,8 @@ export default async function AdminCoursePage({ params }: { params: Promise<{ id
               chapters={course.chapters.map(ch => ({
                 id: ch.id, title: ch.title, duration: ch.duration,
                 format: ch.format, order: ch.order,
+                videoUrl: ch.videoUrl, content: ch.content,
+                resources: ch.resources,
               }))}
             />
           </div>
