@@ -5,6 +5,8 @@ import { verifySession } from '@/lib/session'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { sendWelcomeEmail } from '@/lib/mail'
+import crypto from 'crypto'
 
 async function requireAdmin() {
   const session = await verifySession()
@@ -18,18 +20,36 @@ export async function createUser(_state: { error?: string; ok?: boolean } | unde
   await requireAdmin()
   const name = (formData.get('name') as string).trim()
   const email = (formData.get('email') as string).trim().toLowerCase()
-  const password = (formData.get('password') as string)
   const role = (formData.get('role') as string) || 'learner'
 
-  if (!name || !email || !password) return { error: 'Tous les champs sont requis.' }
+  if (!name || !email) return { error: 'Nom et email requis.' }
 
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) return { error: 'Cet email est déjà utilisé.' }
 
   const initials = name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-  const hashed = await bcrypt.hash(password, 12)
+  // Random placeholder password — user will set their own via welcome link
+  const hashed = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 12)
 
-  await prisma.user.create({ data: { name, email, password: hashed, initials, role } })
+  const user = await prisma.user.create({ data: { name, email, password: hashed, initials, role } })
+
+  // Generate a 48h "set password" token and send welcome email
+  const rawToken = crypto.randomBytes(32).toString('hex')
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
+  const expires = new Date(Date.now() + 48 * 60 * 60 * 1000)
+  await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expires } })
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
+  const setPasswordUrl = `${baseUrl}/reset-password?token=${rawToken}`
+
+  if (process.env.SMTP_HOST) {
+    await sendWelcomeEmail(email, name, setPasswordUrl).catch((err) =>
+      console.error('[MANIA WELCOME] Échec envoi email:', err.message)
+    )
+  } else {
+    console.log(`[MANIA WELCOME] Lien pour ${email}: ${setPasswordUrl}`)
+  }
+
   revalidatePath('/admin/users')
   return { ok: true }
 }

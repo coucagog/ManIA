@@ -35,10 +35,9 @@ export default function AdminUserForm(props: Props) {
             <input className="f-in" name="email" type="email" defaultValue={user?.email} required style={{ width: '100%', fontSize: '13px' }} />
           </div>
           {props.mode === 'create' && (
-            <div>
-              <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Mot de passe</label>
-              <input className="f-in" name="password" type="password" required minLength={6} style={{ width: '100%', fontSize: '13px' }} />
-            </div>
+            <p style={{ fontSize: '12px', color: 'var(--muted)', background: 'var(--bg)', borderRadius: '8px', padding: '10px 14px' }}>
+              Un email sera envoyé à l&apos;utilisateur pour qu&apos;il définisse son mot de passe.
+            </p>
           )}
           <div>
             <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Rôle</label>

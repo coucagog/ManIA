@@ -10,6 +10,31 @@ const transporter = nodemailer.createTransport({
   },
 })
 
+export async function sendWelcomeEmail(to: string, name: string, setPasswordUrl: string) {
+  await transporter.sendMail({
+    from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+    to,
+    subject: 'Bienvenue sur MANIA — Activez votre compte',
+    text: `Bonjour ${name},\n\nVotre compte a été créé sur la plateforme MANIA.\n\nCliquez sur ce lien pour définir votre mot de passe et accéder à la plateforme :\n${setPasswordUrl}\n\nCe lien est valable 48 heures.\n\nÀ bientôt sur MANIA.`,
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
+        <h2 style="color:#1a1a1a;font-size:28px;font-weight:400;margin-bottom:4px">
+          <span>MAN</span><span style="color:#F08C6A">IA</span>
+        </h2>
+        <p style="color:#888;font-size:13px;margin-bottom:28px">Plateforme d'apprentissage</p>
+        <p style="color:#2C3440;font-size:16px;margin-bottom:8px">Bonjour <strong>${name}</strong>,</p>
+        <p style="color:#444;margin-bottom:24px">Votre compte a été créé sur la plateforme MANIA. Cliquez ci-dessous pour définir votre mot de passe et commencer.</p>
+        <div style="margin:28px 0">
+          <a href="${setPasswordUrl}" style="background:#F08C6A;color:#fff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:500">
+            Activer mon compte
+          </a>
+        </div>
+        <p style="color:#888;font-size:13px">Ce lien est valable 48 heures. Si vous n'attendiez pas cet email, ignorez-le.</p>
+      </div>
+    `,
+  })
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   await transporter.sendMail({
     from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
