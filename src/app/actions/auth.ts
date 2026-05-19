@@ -10,7 +10,8 @@ import {
 import bcrypt from 'bcryptjs'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { sendTwoFactorCode } from '@/lib/mail'
+import { sendTwoFactorCode, sendPasswordResetEmail } from '@/lib/mail'
+import crypto from 'crypto'
 
 function randomCode() {
   return String(Math.floor(100000 + Math.random() * 900000))
@@ -145,4 +146,72 @@ export async function resend2fa(
 export async function logout() {
   await deleteSession()
   redirect('/login')
+}
+
+export async function requestPasswordReset(
+  _state: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+  if (!email) return { error: 'Adresse e-mail requise.' }
+
+  const user = await prisma.user.findUnique({ where: { email } })
+  // Always return ok to avoid user enumeration
+  if (!user) return { ok: true }
+
+  // Invalidate any existing tokens for this user
+  await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } })
+
+  const rawToken = crypto.randomBytes(32).toString('hex')
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex')
+  const expires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+  await prisma.passwordResetToken.create({
+    data: { userId: user.id, tokenHash, expires },
+  })
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
+  const resetUrl = `${baseUrl}/reset-password?token=${rawToken}`
+
+  if (process.env.SMTP_HOST) {
+    await sendPasswordResetEmail(email, resetUrl).catch((err) =>
+      console.error('[MANIA RESET] Échec envoi email:', err.message)
+    )
+  } else {
+    console.log(`[MANIA RESET] Lien pour ${email}: ${resetUrl}`)
+  }
+
+  return { ok: true }
+}
+
+export async function resetPassword(
+  _state: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const token = (formData.get('token') as string)?.trim()
+  const password = formData.get('password') as string
+  const confirm = formData.get('confirm') as string
+
+  if (!token) return { error: 'Lien invalide.' }
+  if (!password || password.length < 8) return { error: 'Le mot de passe doit contenir au moins 8 caractères.' }
+  if (password !== confirm) return { error: 'Les mots de passe ne correspondent pas.' }
+
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { tokenHash },
+    include: { user: true },
+  })
+
+  if (!record || record.expires < new Date()) {
+    return { error: 'Ce lien est invalide ou a expiré. Faites une nouvelle demande.' }
+  }
+
+  const hashed = await bcrypt.hash(password, 12)
+  await prisma.user.update({
+    where: { id: record.userId },
+    data: { password: hashed },
+  })
+  await prisma.passwordResetToken.delete({ where: { tokenHash } })
+
+  return { ok: true }
 }

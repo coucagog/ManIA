@@ -3,6 +3,7 @@
 import { useActionState } from 'react'
 import { login } from '@/app/actions/auth'
 import { useState } from 'react'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(login, undefined)
@@ -46,7 +47,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <button className="link-s" type="button">Mot de passe oublié</button>
+        <Link href="/forgot-password" className="link-s" style={{ textDecoration: 'none', display: 'block', textAlign: 'center' }}>
+          Mot de passe oublié ?
+        </Link>
         <p className="auth-note">
           Authentification à deux facteurs activée par défaut.<br /><br />
           L&apos;accès à MANIA se fait sur candidature.{' '}
