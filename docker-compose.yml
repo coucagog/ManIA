@@ -22,6 +22,7 @@ services:
       SMTP_USER: "${SMTP_USER}"
       SMTP_PASS: "${SMTP_PASS}"
       SMTP_FROM: "${SMTP_FROM}"
+      NEXT_PUBLIC_BASE_URL: "https://${DOMAIN}"
     volumes:
       - db_data:/data
       - uploads:/app/public/uploads
