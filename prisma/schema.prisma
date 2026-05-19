@@ -18,10 +18,11 @@ model User {
   twoFactorCode     String?
   twoFactorExpires  DateTime?
   createdAt         DateTime             @default(now())
-  progress          Progress[]
-  notes             Note[]
-  experts           Expert[]
-  resetTokens       PasswordResetToken[]
+  progress              Progress[]
+  notes                 Note[]
+  experts               Expert[]
+  resetTokens           PasswordResetToken[]
+  sessionRegistrations  SessionRegistration[]
 }
 
 model PasswordResetToken {
@@ -99,17 +100,29 @@ model Note {
 }
 
 model Session {
-  id          String   @id @default(cuid())
-  title       String
-  date        DateTime
-  endDate     DateTime?
-  location    String
-  address     String?
-  description String?
-  instructor  String
-  maxSeats    Int?
-  status      String   @default("upcoming")  // upcoming | past | cancelled
-  createdAt   DateTime @default(now())
+  id            String                @id @default(cuid())
+  title         String
+  date          DateTime
+  endDate       DateTime?
+  location      String
+  address       String?
+  description   String?
+  instructor    String
+  maxSeats      Int?
+  status        String                @default("upcoming")  // upcoming | past | cancelled
+  createdAt     DateTime              @default(now())
+  registrations SessionRegistration[]
+}
+
+model SessionRegistration {
+  id           String   @id @default(cuid())
+  sessionId    String
+  userId       String
+  registeredAt DateTime @default(now())
+  session      Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
 }
 
 model Expert {

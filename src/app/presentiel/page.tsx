@@ -3,14 +3,15 @@ import { prisma } from '@/lib/db'
 import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
+import SessionRegistrationButton from '@/components/SessionRegistrationButton'
 
-function fmt(d: Date | string) {
-  const date = new Date(d as unknown as string)
-  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-}
 function fmtShort(d: Date | string) {
   const date = new Date(d as unknown as string)
-  return { day: date.toLocaleDateString('fr-FR', { day: '2-digit' }), month: date.toLocaleDateString('fr-FR', { month: 'short' }), year: date.getFullYear() }
+  return {
+    day: date.toLocaleDateString('fr-FR', { day: '2-digit' }),
+    month: date.toLocaleDateString('fr-FR', { month: 'short' }),
+    year: date.getFullYear(),
+  }
 }
 function fmtTime(d: Date | string) {
   return new Date(d as unknown as string).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -21,10 +22,19 @@ export default async function PresentielPage() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return null
 
-  const all = await prisma.session.findMany({ orderBy: { date: 'asc' } })
+  const all = await prisma.session.findMany({
+    orderBy: { date: 'asc' },
+    include: {
+      _count: { select: { registrations: true } },
+      registrations: { where: { userId: session.userId }, select: { id: true } },
+    },
+  })
+
   const now = new Date()
   const upcoming = all.filter(s => s.status === 'upcoming')
-  const past = all.filter(s => s.status === 'past' || (s.status !== 'upcoming' && s.status !== 'cancelled' && new Date(s.date as unknown as string) < now)).reverse()
+  const past = all
+    .filter(s => s.status === 'past' || (s.status !== 'upcoming' && s.status !== 'cancelled' && new Date(s.date as unknown as string) < now))
+    .reverse()
 
   return (
     <div className="app-shell">
@@ -47,6 +57,11 @@ export default async function PresentielPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {upcoming.map(s => {
                   const d = fmtShort(s.date)
+                  const registrantCount = s._count.registrations
+                  const isRegistered = s.registrations.length > 0
+                  const isFull = !!s.maxSeats && registrantCount >= s.maxSeats
+                  const seatsLeft = s.maxSeats ? s.maxSeats - registrantCount : null
+
                   return (
                     <div key={s.id} className="sec-card" style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: '20px', alignItems: 'start' }}>
                       {/* Date block */}
@@ -55,20 +70,33 @@ export default async function PresentielPage() {
                         <div style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.05em', marginTop: '2px' }}>{d.month}</div>
                         <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '1px' }}>{d.year}</div>
                       </div>
+
                       {/* Info */}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '4px' }}>{s.title}</div>
-                        <div style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '6px' }}>
-                          par {s.instructor}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '2px' }}>{s.title}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--muted)' }}>par {s.instructor}</div>
                         </div>
                         {s.description && (
-                          <div style={{ fontSize: '13px', color: 'var(--fg)', lineHeight: 1.6, marginBottom: '8px' }}>{s.description}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--fg)', lineHeight: 1.6 }}>{s.description}</div>
                         )}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '12px', color: 'var(--muted)' }}>
                           <span>📍 {s.location}{s.address ? ` — ${s.address}` : ''}</span>
                           <span>🕐 {fmtTime(s.date)}{s.endDate ? ` – ${fmtTime(s.endDate)}` : ''}</span>
-                          {s.maxSeats && <span>👥 {s.maxSeats} places</span>}
+                          {s.maxSeats && (
+                            <span style={{ color: isFull ? '#e05c5c' : seatsLeft !== null && seatsLeft <= 3 ? '#e07a2a' : 'var(--muted)' }}>
+                              👥 {isFull ? 'Complet' : `${seatsLeft} place${seatsLeft === 1 ? '' : 's'} restante${seatsLeft === 1 ? '' : 's'}`}
+                            </span>
+                          )}
+                          {!s.maxSeats && registrantCount > 0 && (
+                            <span>👥 {registrantCount} inscrit{registrantCount > 1 ? 's' : ''}</span>
+                          )}
                         </div>
+                        <SessionRegistrationButton
+                          sessionId={s.id}
+                          isRegistered={isRegistered}
+                          isFull={isFull}
+                        />
                       </div>
                     </div>
                   )
@@ -94,7 +122,10 @@ export default async function PresentielPage() {
                     </div>
                     <div>
                       <div style={{ fontWeight: 500, fontSize: '14px' }}>{s.title}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>{s.location} · {s.instructor}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                        {s.location} · {s.instructor}
+                        {s._count.registrations > 0 && ` · ${s._count.registrations} inscrit${s._count.registrations > 1 ? 's' : ''}`}
+                      </div>
                     </div>
                   </div>
                 ))}

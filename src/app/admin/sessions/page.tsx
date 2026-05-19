@@ -13,7 +13,10 @@ export default async function AdminSessionsPage() {
   const admin = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!admin) return null
 
-  const sessions = await prisma.session.findMany({ orderBy: { date: 'desc' } })
+  const sessions = await prisma.session.findMany({
+    orderBy: { date: 'desc' },
+    include: { _count: { select: { registrations: true } } },
+  })
 
   return (
     <div className="app-shell">
@@ -45,7 +48,9 @@ export default async function AdminSessionsPage() {
                     <td style={{ padding: '12px 16px', fontWeight: 500 }}>{s.title}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{s.location}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{s.instructor}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{s.maxSeats ?? '—'}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>
+                      {s._count.registrations}{s.maxSeats ? ` / ${s.maxSeats}` : ''}
+                    </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{ fontSize: '11px', color: STATUS_COLOR[s.status] ?? 'var(--muted)', background: 'var(--inset)', borderRadius: '4px', padding: '2px 7px' }}>{STATUS_LABEL[s.status] ?? s.status}</span>
                     </td>

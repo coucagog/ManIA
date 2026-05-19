@@ -72,3 +72,43 @@ export async function deleteSession(formData: FormData) {
   revalidatePath('/admin/sessions')
   redirect('/admin/sessions')
 }
+
+export async function registerForSession(
+  _state: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { userId } = await verifySession()
+  const sessionId = formData.get('sessionId') as string
+  if (!sessionId) return { error: 'Session introuvable.' }
+
+  const s = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: { _count: { select: { registrations: true } } },
+  })
+  if (!s) return { error: 'Session introuvable.' }
+  if (s.status !== 'upcoming') return { error: 'Cette session n\'accepte plus d\'inscriptions.' }
+  if (s.maxSeats && s._count.registrations >= s.maxSeats) return { error: 'Cette session est complète.' }
+
+  await prisma.sessionRegistration.upsert({
+    where: { sessionId_userId: { sessionId, userId } },
+    create: { sessionId, userId },
+    update: {},
+  })
+
+  revalidatePath('/presentiel')
+  return { ok: true }
+}
+
+export async function unregisterFromSession(
+  _state: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { userId } = await verifySession()
+  const sessionId = formData.get('sessionId') as string
+  if (!sessionId) return { error: 'Session introuvable.' }
+
+  await prisma.sessionRegistration.deleteMany({ where: { sessionId, userId } })
+
+  revalidatePath('/presentiel')
+  return { ok: true }
+}
