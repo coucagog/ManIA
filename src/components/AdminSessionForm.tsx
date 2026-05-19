@@ -3,11 +3,13 @@
 import { useActionState } from 'react'
 import { createSession, updateSession, deleteSession } from '@/app/actions/sessions'
 import Link from 'next/link'
+import SessionMediaUpload from '@/components/SessionMediaUpload'
 
 type SessionData = {
   id: string; title: string; date: string; endDate?: string | null
   location: string; address?: string | null; description?: string | null
   instructor: string; maxSeats?: number | null; status: string
+  mediaUrl?: string | null; mediaType?: string | null
 }
 type Props = { mode: 'create'; experts: string[] } | { mode: 'edit'; session: SessionData; experts: string[] }
 
@@ -58,6 +60,17 @@ export default function AdminSessionForm(props: Props) {
                 <option value="cancelled">Annulée</option>
               </select>
             </div>
+          </div>
+
+          {/* Media */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '4px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: '12px' }}>
+              Média de présentation (optionnel)
+            </div>
+            <SessionMediaUpload
+              initialUrl={s?.mediaUrl}
+              initialType={s?.mediaType}
+            />
           </div>
 
           {state?.error && <p style={{ color: 'var(--coral)', fontSize: '12px' }}>{state.error}</p>}

@@ -110,6 +110,8 @@ model Session {
   instructor    String
   maxSeats      Int?
   status        String                @default("upcoming")  // upcoming | past | cancelled
+  mediaUrl      String?
+  mediaType     String?               // image | pdf | video
   createdAt     DateTime              @default(now())
   registrations SessionRegistration[]
 }

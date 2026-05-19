@@ -50,6 +50,7 @@ export default async function AdminSessionPage({ params }: { params: Promise<{ i
               location: s.location, address: s.address,
               description: s.description, instructor: s.instructor,
               maxSeats: s.maxSeats, status: s.status,
+              mediaUrl: s.mediaUrl, mediaType: s.mediaType,
             }}
           />
 

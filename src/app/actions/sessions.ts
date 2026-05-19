@@ -22,6 +22,9 @@ export async function createSession(_state: { error?: string; ok?: boolean } | u
   const maxSeats = formData.get('maxSeats') ? parseInt(formData.get('maxSeats') as string) : null
   const status = (formData.get('status') as string) || 'upcoming'
 
+  const mediaUrl = (formData.get('mediaUrl') as string | null)?.trim() || null
+  const mediaType = (formData.get('mediaType') as string | null)?.trim() || null
+
   if (!title || !date || !location || !instructor) return { error: 'Titre, date, lieu et intervenant requis.' }
 
   const s = await prisma.session.create({
@@ -29,6 +32,8 @@ export async function createSession(_state: { error?: string; ok?: boolean } | u
       title, date: new Date(date),
       endDate: endDate ? new Date(endDate) : null,
       location, address, description, instructor, maxSeats, status,
+      mediaUrl: mediaUrl || null,
+      mediaType: mediaUrl ? mediaType : null,
     },
   })
   revalidatePath('/presentiel')
@@ -49,6 +54,9 @@ export async function updateSession(_state: { error?: string; ok?: boolean } | u
   const maxSeats = formData.get('maxSeats') ? parseInt(formData.get('maxSeats') as string) : null
   const status = (formData.get('status') as string) || 'upcoming'
 
+  const mediaUrl = (formData.get('mediaUrl') as string | null)?.trim() || null
+  const mediaType = (formData.get('mediaType') as string | null)?.trim() || null
+
   if (!title || !date || !location) return { error: 'Titre, date et lieu requis.' }
 
   await prisma.session.update({
@@ -57,6 +65,8 @@ export async function updateSession(_state: { error?: string; ok?: boolean } | u
       title, date: new Date(date),
       endDate: endDate ? new Date(endDate) : null,
       location, address, description, instructor, maxSeats, status,
+      mediaUrl: mediaUrl || null,
+      mediaType: mediaUrl ? mediaType : null,
     },
   })
   revalidatePath('/presentiel')

@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
 import MobileNav from '@/components/MobileNav'
 import SessionRegistrationButton from '@/components/SessionRegistrationButton'
+import SessionMediaView from '@/components/SessionMediaView'
 
 function fmtShort(d: Date | string) {
   const date = new Date(d as unknown as string)
@@ -97,6 +98,9 @@ export default async function PresentielPage() {
                           isRegistered={isRegistered}
                           isFull={isFull}
                         />
+                        {s.mediaUrl && s.mediaType && (
+                          <SessionMediaView url={s.mediaUrl} mediaType={s.mediaType} title={s.title} />
+                        )}
                       </div>
                     </div>
                   )
