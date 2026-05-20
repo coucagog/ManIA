@@ -4,10 +4,22 @@ import { prisma } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { unlink } from 'fs/promises'
+import path from 'path'
 
 async function requireAdmin() {
   const session = await verifySession()
   if (session.role !== 'admin') redirect('/dashboard')
+}
+
+async function deleteUploadedFile(url: string | null | undefined) {
+  if (!url || !url.startsWith('/uploads/')) return
+  const filename = url.slice('/uploads/'.length)
+  const resolved = path.resolve(process.cwd(), 'public', 'uploads', filename)
+  // Prevent path traversal
+  const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads')
+  if (!resolved.startsWith(uploadsDir + path.sep)) return
+  try { await unlink(resolved) } catch { /* already gone — fine */ }
 }
 
 export async function createSession(_state: { error?: string; ok?: boolean } | undefined, formData: FormData): Promise<{ error?: string; ok?: boolean }> {
@@ -59,6 +71,12 @@ export async function updateSession(_state: { error?: string; ok?: boolean } | u
 
   if (!title || !date || !location) return { error: 'Titre, date et lieu requis.' }
 
+  // Delete old file if it changed or was removed
+  const old = await prisma.session.findUnique({ where: { id }, select: { mediaUrl: true } })
+  if (old?.mediaUrl && old.mediaUrl !== (mediaUrl || null)) {
+    await deleteUploadedFile(old.mediaUrl)
+  }
+
   await prisma.session.update({
     where: { id },
     data: {
@@ -77,7 +95,9 @@ export async function updateSession(_state: { error?: string; ok?: boolean } | u
 export async function deleteSession(formData: FormData) {
   await requireAdmin()
   const id = formData.get('id') as string
+  const s = await prisma.session.findUnique({ where: { id }, select: { mediaUrl: true } })
   await prisma.session.delete({ where: { id } })
+  await deleteUploadedFile(s?.mediaUrl)
   revalidatePath('/presentiel')
   revalidatePath('/admin/sessions')
   redirect('/admin/sessions')
