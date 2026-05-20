@@ -56,6 +56,103 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   })
 }
 
+type SessionInfo = {
+  title: string
+  date: Date | string
+  endDate?: Date | string | null
+  location: string
+  address?: string | null
+  instructor: string
+}
+
+function fmtDate(d: Date | string) {
+  return new Date(d as string).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+function fmtTime(d: Date | string) {
+  return new Date(d as string).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function sessionBlock(s: SessionInfo) {
+  const timeRange = s.endDate ? `${fmtTime(s.date)} – ${fmtTime(s.endDate)}` : fmtTime(s.date)
+  return `
+    <div style="background:#F7F4F0;border-radius:10px;padding:20px 24px;margin:24px 0">
+      <div style="font-size:17px;font-weight:600;color:#2C3440;margin-bottom:8px">${s.title}</div>
+      <div style="font-size:13px;color:#7A776F;margin-bottom:4px">📅 ${fmtDate(s.date)}</div>
+      <div style="font-size:13px;color:#7A776F;margin-bottom:4px">🕐 ${timeRange}</div>
+      <div style="font-size:13px;color:#7A776F;margin-bottom:4px">📍 ${s.location}${s.address ? ` — ${s.address}` : ''}</div>
+      <div style="font-size:13px;color:#7A776F">🎓 ${s.instructor}</div>
+    </div>
+  `
+}
+
+function mailWrapper(content: string) {
+  return `
+    <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px">
+      <h2 style="color:#1a1a1a;font-size:28px;font-weight:400;margin-bottom:4px">
+        <span>MAN</span><span style="color:#F08C6A">IA</span>
+      </h2>
+      <p style="color:#888;font-size:13px;margin-bottom:28px">Plateforme d'apprentissage</p>
+      ${content}
+      <hr style="border:none;border-top:1px solid #e8e4df;margin:28px 0">
+      <p style="color:#bbb;font-size:11px">Vous recevez cet email car vous êtes inscrit sur la plateforme MANIA.</p>
+    </div>
+  `
+}
+
+export async function sendSessionReminder24h(to: string, name: string, session: SessionInfo) {
+  await transporter.sendMail({
+    from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+    to,
+    subject: `Rappel — ${session.title} demain`,
+    text: `Bonjour ${name},\n\nRappel : votre session "${session.title}" a lieu demain, ${fmtDate(session.date)} à ${fmtTime(session.date)} au ${session.location}.\n\nÀ demain sur MANIA.`,
+    html: mailWrapper(`
+      <p style="color:#2C3440;font-size:16px;margin-bottom:4px">Bonjour <strong>${name}</strong>,</p>
+      <p style="color:#444;margin-bottom:0">Votre session est <strong>demain</strong>. Voici un rappel :</p>
+      ${sessionBlock(session)}
+      <p style="color:#444">Pensez à confirmer votre présence si ce n'est pas encore fait. À demain !</p>
+    `),
+  })
+}
+
+export async function sendSessionReminder2h(to: string, name: string, session: SessionInfo) {
+  await transporter.sendMail({
+    from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+    to,
+    subject: `Rappel — ${session.title} dans 2 heures`,
+    text: `Bonjour ${name},\n\nRappel : votre session "${session.title}" commence dans 2 heures, à ${fmtTime(session.date)} au ${session.location}.\n\nBonne session !`,
+    html: mailWrapper(`
+      <p style="color:#2C3440;font-size:16px;margin-bottom:4px">Bonjour <strong>${name}</strong>,</p>
+      <p style="color:#444;margin-bottom:0">Votre session commence <strong>dans 2 heures</strong> :</p>
+      ${sessionBlock(session)}
+      <p style="color:#444">Bonne session !</p>
+    `),
+  })
+}
+
+export async function sendNewCourseNotification(to: string, name: string, course: { title: string; speaker: string; parcours: string; level: string; url: string }) {
+  await transporter.sendMail({
+    from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,
+    to,
+    subject: `Nouveau cours disponible — ${course.title}`,
+    text: `Bonjour ${name},\n\nUn nouveau cours est disponible sur MANIA : "${course.title}" par ${course.speaker}.\n\nAccédez-y ici : ${course.url}`,
+    html: mailWrapper(`
+      <p style="color:#2C3440;font-size:16px;margin-bottom:4px">Bonjour <strong>${name}</strong>,</p>
+      <p style="color:#444;margin-bottom:0">Un nouveau cours vient d'être ajouté à votre catalogue :</p>
+      <div style="background:#F7F4F0;border-radius:10px;padding:20px 24px;margin:24px 0">
+        <div style="font-size:17px;font-weight:600;color:#2C3440;margin-bottom:8px">${course.title}</div>
+        <div style="font-size:13px;color:#7A776F;margin-bottom:4px">🎓 ${course.speaker}</div>
+        <div style="font-size:13px;color:#7A776F;margin-bottom:4px">📚 ${course.parcours}</div>
+        <div style="font-size:13px;color:#7A776F">📊 ${course.level}</div>
+      </div>
+      <div style="margin:20px 0">
+        <a href="${course.url}" style="background:#F08C6A;color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500">
+          Accéder au cours →
+        </a>
+      </div>
+    `),
+  })
+}
+
 export async function sendTwoFactorCode(to: string, code: string) {
   await transporter.sendMail({
     from: `"MANIA" <${process.env.SMTP_FROM ?? process.env.SMTP_USER}>`,

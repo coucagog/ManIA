@@ -23,6 +23,7 @@ services:
       SMTP_PASS: "${SMTP_PASS}"
       SMTP_FROM: "${SMTP_FROM}"
       NEXT_PUBLIC_BASE_URL: "https://${DOMAIN}"
+      CRON_SECRET: "${CRON_SECRET}"
     volumes:
       - db_data:/data
       - uploads:/app/public/uploads

@@ -5,7 +5,7 @@ import { verifySession } from '@/lib/session'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { sendWelcomeEmail } from '@/lib/mail'
+import { sendWelcomeEmail, sendNewCourseNotification } from '@/lib/mail'
 import crypto from 'crypto'
 
 async function requireAdmin() {
@@ -111,6 +111,24 @@ export async function createCourse(_state: { error?: string; ok?: boolean } | un
 
   const course = await prisma.course.create({ data: { title, slug, speaker, parcours, format, duration, level, thumbClass } })
   revalidatePath('/admin/cours')
+  revalidatePath('/catalogue')
+
+  // Notify all learners — fire and forget
+  if (process.env.SMTP_HOST) {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'
+    const courseUrl = `${baseUrl}/catalogue`
+    prisma.user.findMany({ where: { role: 'learner' }, select: { name: true, email: true } })
+      .then(learners =>
+        Promise.allSettled(
+          learners.map(u =>
+            sendNewCourseNotification(u.email, u.name, { title, speaker, parcours, level, url: courseUrl })
+              .catch(err => console.error(`[MANIA COURS] Échec notif → ${u.email}:`, err.message))
+          )
+        )
+      )
+      .catch(err => console.error('[MANIA COURS] Échec récupération apprenants:', err.message))
+  }
+
   redirect(`/admin/cours/${course.id}`)
 }
 
