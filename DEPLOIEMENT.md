@@ -104,7 +104,6 @@ docker compose logs
 ```bash
 mkdir -p /opt/mania && cd /opt/mania
 git clone https://github.com/coucagog/ManIA.git .
-cd mania-app
 ```
 
 ```bash
@@ -137,7 +136,7 @@ Le certificat HTTPS est généré et renouvelé automatiquement par Traefik.
 ## Mises à jour futures
 
 ```bash
-cd /opt/mania/mania-app
+cd /opt/mania
 git pull
 docker compose up -d --build
 ```
@@ -213,39 +212,6 @@ db.prepare(
 console.log('✓ Compte créé :', EMAIL, '/', PASSWORD)
 db.close()
 EOF
-
-
-docker exec mania-app-1 node -e "const db=require('better-sqlite3')('/data/prod.db');console.log(db.prepare('SELECT email,role FROM User').all())"
-
-docker exec mania-app-1 node -e "const db=require('better-sqlite3')('/data/prod.db');console.log(db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all())"
-
-docker exec mania-app-1 node -e "try{const b=require('bcryptjs'),D=require('better-sqlite3'),{randomUUID:u}=require('crypto'),db=new D('/data/prod.db'),h=b.hashSync ('ChangeMe123!',12);db.prepare('INSERT INTO User (id,email,name,initials,password,role,createdAt) VALUES (?,?,?,?,?,?,?)').run(u(),'admin@mania.sn','Administrateur MANIA','AM',h,'admin',new Date().toISOString());console.log('OK');db.close()}catch(e){console.error('ERREUR:',e.message)}"
-
-
-cat > /tmp/admin.js << 'EOF'
-const b = require('bcryptjs')
-const D = require('better-sqlite3')
-const { randomUUID: u } = require('crypto')
-const db = new D('/data/prod.db')
-const h = b.hashSync('ManiaAdmin2025', 12)
-db.prepare('DELETE FROM User WHERE email = ?').run('admin@mania.sn')
-db.prepare('INSERT INTO User (id,email,name,initials,password,role,createdAt) VALUES (?,?,?,?,?,?,?)').run(u(),'admin@mania.sn','Administrateur MANIA','AM',h,'admin',new Date().toISOString())
-console.log('OK')
-db.close()
-EOF
-
-
-docker exec mania-app-1 node -e "const db=require('better-sqlite3')('/data/prod.db');try{db.prepare('INSERT INTO User (id,email,name,initials,password,role,createdAt) VALUES (?,?,?,?,?,?,?)').run('id1','admin@mania.sn','Admin','AM','hash','admin',new Date().toISOString());console.log('OK')}catch(e){console.error(e.message)}"
-
-docker exec mania-app-1 node -e "const db=require('better-sqlite3')('/data/prod.db'),b=require('bcryptjs'),{randomUUID:u}=require('crypto');db.prepare('DELETE FROM User WHERE email=?').run('admin@mania.sn');const h=b.hashSync('ManiaAdmin2025',12);db.prepare('INSERT INTO User (id,email,name,initials,password,role,createdAt) VALUES (?,?,?,?,?,?,?)').run(u(),'admin@mania.sn','Administrateur MANIA','AM',h,'admin',new Date().toISOString());console.log('OK')"
-
-
-docker exec mania-app-1 node -e "const db=require('better-sqlite3')('/data/prod.db');const u=db.prepare('SELECT twoFactorCode,twoFactorExpires FROM User WHERE email=?').get('admin@mania.sn');console.log(JSON.stringify(u))"
-
-docker exec mania-app-1 node -e "const n=require('nodemailer');const t=n.createTransport({host:'my.gcouca.com',port:587,secure:false,auth:{user:'noreply@mania.sn', pass:'314yazgSN'}});t.verify().then(()=>console.log('SMTP OK')).catch(e=>console.error('ERREUR:',e.message))"
-
-
-LIRE DANS LE TERMINAL LE CODE DU 2FA
 
 ---
 
