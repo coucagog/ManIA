@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 
 function detectType(url: string): 'youtube' | 'vimeo' | 'video' | 'audio' | null {
   if (/youtube\.com|youtu\.be/.test(url)) return 'youtube'
@@ -35,6 +35,24 @@ function fmtTime(s: number) {
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2]
 
+function SpeakerIcon({ volume, muted }: { volume: number; muted: boolean }) {
+  if (muted || volume === 0) return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+    </svg>
+  )
+  if (volume < 0.5) return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z" />
+    </svg>
+  )
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+    </svg>
+  )
+}
+
 function CustomVideoPlayer({ url, title }: { url: string; title: string }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,6 +60,8 @@ function CustomVideoPlayer({ url, title }: { url: string; title: string }) {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [speed, setSpeed] = useState(1)
+  const [volume, setVolume] = useState(1)
+  const [muted, setMuted] = useState(false)
 
   const notStarted = currentTime === 0 && !playing
   const progress = duration ? (currentTime / duration) * 100 : 0
@@ -77,6 +97,30 @@ function CustomVideoPlayer({ url, title }: { url: string; title: string }) {
     if (!v || !duration) return
     const rect = e.currentTarget.getBoundingClientRect()
     v.currentTime = ((e.clientX - rect.left) / rect.width) * duration
+  }
+
+  function toggleMute() {
+    const v = videoRef.current
+    if (!v) return
+    const next = !muted
+    v.muted = next
+    setMuted(next)
+  }
+
+  const applyVolume = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const v = videoRef.current
+    if (!v) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const vol = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    v.volume = vol
+    v.muted = vol === 0
+    setVolume(vol)
+    setMuted(vol === 0)
+  }, [])
+
+  function onVolPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    applyVolume(e)
   }
 
   return (
@@ -132,6 +176,23 @@ function CustomVideoPlayer({ url, title }: { url: string; title: string }) {
             </button>
           ))}
           <div className="sp" />
+          {/* Volume control */}
+          <button
+            className="c-btn"
+            onClick={e => { e.stopPropagation(); toggleMute() }}
+            title={muted ? 'Activer le son' : 'Couper le son'}
+            style={{ color: muted ? 'var(--coral)' : undefined }}
+          >
+            <SpeakerIcon volume={volume} muted={muted} />
+          </button>
+          <div
+            style={{ width: '70px', height: '3px', background: 'var(--border)', borderRadius: '2px', cursor: 'pointer', flexShrink: 0, touchAction: 'none' }}
+            onPointerDown={e => { e.stopPropagation(); onVolPointerDown(e) }}
+            onPointerMove={e => { if (e.buttons === 1) { e.stopPropagation(); applyVolume(e) } }}
+          >
+            <div style={{ width: `${muted ? 0 : volume * 100}%`, height: '100%', background: 'var(--coral)', borderRadius: '2px', transition: 'width 0.05s' }} />
+          </div>
+          <div style={{ width: '1px', height: '20px', background: 'var(--border)', margin: '0 4px' }} />
           <button className="c-btn">FR</button>
           <button className="c-btn active" onClick={e => { e.stopPropagation(); toggleFullscreen() }}>⛶</button>
         </div>
