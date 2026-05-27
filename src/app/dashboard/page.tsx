@@ -52,18 +52,18 @@ export default async function DashboardPage() {
   const lastUpdated = user.progress[0]?.updatedAt
   const lastSeen = lastUpdated ? formatRelative(lastUpdated as unknown as string) : null
 
-  // Progress by parcours
-  const progressByParcours: Record<string, { total: number; done: number }> = {}
+  // Progress by parcours — average chapter % across all courses in the parcours
+  const progressByParcours: Record<string, { total: number; sumPct: number }> = {}
   for (const course of allCourses) {
-    if (!progressByParcours[course.parcours]) progressByParcours[course.parcours] = { total: 0, done: 0 }
+    if (!progressByParcours[course.parcours]) progressByParcours[course.parcours] = { total: 0, sumPct: 0 }
     progressByParcours[course.parcours].total++
     const p = user.progress.find(p => p.courseId === course.id)
-    if (p && p.percentage === 100) progressByParcours[course.parcours].done++
+    progressByParcours[course.parcours].sumPct += p?.percentage ?? 0
   }
 
-  const parcoursList = Object.entries(progressByParcours).map(([name, { total, done }]) => ({
+  const parcoursList = Object.entries(progressByParcours).map(([name, { total, sumPct }]) => ({
     name,
-    pct: Math.round((done / total) * 100),
+    pct: Math.round(sumPct / total),
   }))
 
   // Recommendation: a course the user hasn't completed, different from the current one
