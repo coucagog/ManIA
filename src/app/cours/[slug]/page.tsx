@@ -45,7 +45,7 @@ export default async function CoursPage({
   const nextChapter = activeIdx < course.chapters.length - 1 ? course.chapters[activeIdx + 1] : null
 
   const completedPct = progress?.percentage ?? 0
-  const completedCount = Math.floor((completedPct / 100) * course.chapters.length)
+  const completedCount = Math.round((completedPct / 100) * course.chapters.length)
   const completedIds = new Set(course.chapters.slice(0, completedCount).map(c => c.id))
   const isCurrentDone = completedIds.has(activeChapter?.id ?? '')
 
