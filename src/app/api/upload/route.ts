@@ -14,7 +14,7 @@ const DEFAULT_MAX = 200 * 1024 * 1024
 
 export async function POST(req: NextRequest) {
   const session = await getSession()
-  if (!session?.userId || session.role !== 'admin') {
+  if (!session?.userId) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
@@ -24,6 +24,11 @@ export async function POST(req: NextRequest) {
 
   if (!file || !file.name) {
     return NextResponse.json({ error: 'Fichier manquant' }, { status: 400 })
+  }
+
+  // Non-admins can only upload images (profile photo)
+  if (session.role !== 'admin' && typeHint !== 'image' && !ALLOWED.image.mime.includes(file.type)) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const rule = ALLOWED[typeHint]
