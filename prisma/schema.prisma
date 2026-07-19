@@ -24,6 +24,7 @@ model User {
   resetTokens           PasswordResetToken[]
   sessionRegistrations  SessionRegistration[]
   sessionReminders      SessionReminder[]
+  tenantMemberships     TenantMember[]
 }
 
 model PasswordResetToken {
@@ -164,4 +165,31 @@ model DonationMethod {
   active      Boolean  @default(true)
   order       Int      @default(0)
   createdAt   DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Multi-tenant : accès aux agents IA (<slug>.mania.sn)
+// ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id          String    @id @default(cuid())
+  slug        String    @unique   // sous-domaine : <slug>.mania.sn
+  name        String              // "Cabinet Dr Diop"
+  pack        String    @default("generique")  // pack vertical : ophtalmo | generique | ...
+  status      String    @default("active")     // active | trial | suspended
+  trialEndsAt DateTime?
+  createdAt   DateTime  @default(now())
+  members     TenantMember[]
+}
+
+model TenantMember {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      String   @default("member")  // owner | member
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
 }
