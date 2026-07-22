@@ -193,3 +193,25 @@ model TenantMember {
 
   @@unique([tenantId, userId])
 }
+
+// ─────────────────────────────────────────────────────────────
+//  Demandes d'agent IA (formulaire public de candidature)
+// ─────────────────────────────────────────────────────────────
+
+model DemandeAgent {
+  id           String    @id @default(cuid())
+  nom          String
+  email        String
+  telephone    String?
+  organisation String?
+  secteur      String    @default("autre")     // ophtalmo | optique | sante | autre
+  besoin       String                          // texte libre du prospect
+  statut       String    @default("nouvelle")  // nouvelle | qualifiee | acceptee | refusee
+  consentement DateTime                        // horodatage du consentement (loi 2008-12)
+  noteInterne  String?                         // usage MLS, jamais montré au prospect
+  tenantSlug   String?                         // renseigné quand le locataire est créé
+  createdAt    DateTime  @default(now())
+  traiteeAt    DateTime?
+
+  @@index([statut, createdAt])
+}

@@ -706,3 +706,71 @@ html, body {
   #tw-trigger { bottom: 74px !important; right: 12px !important; }
   #tw-panel { width: 100% !important; }
 }
+
+/* ═══ Coquille publique ══════════════════════════════════════════════════ */
+
+.pub-shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+.pub-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 28px; gap: 24px; flex-wrap: wrap;
+}
+.pub-logo {
+  font-family: var(--serif); font-size: 24px; letter-spacing: -.01em;
+  text-decoration: none; line-height: 1;
+}
+.pub-logo .man { color: var(--fg); }
+.pub-logo .ia  { color: var(--coral); }
+
+.pub-nav { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.pub-nav a {
+  font-size: 14px; color: var(--muted); text-decoration: none;
+  transition: color .15s;
+}
+.pub-nav a:hover { color: var(--fg); }
+.pub-nav-cta {
+  color: var(--coral) !important; font-weight: 500;
+  border: 1px solid var(--coral); border-radius: var(--r-sm);
+  padding: 7px 14px;
+}
+
+.pub-main { flex: 1; }
+
+.pub-footer {
+  padding: 28px; text-align: center; font-size: 13px; color: var(--muted);
+}
+.pub-footer-links { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+.pub-footer-links a { color: var(--muted); text-decoration: none; }
+.pub-footer-links a:hover { color: var(--fg); }
+.pub-footer-note { margin-top: 12px; font-size: 12px; }
+
+/* Carte élargie pour le formulaire de candidature (plus de champs) */
+.auth-card--large { width: min(560px, 92vw); }
+
+/* Consentement : la case doit rester lisible, jamais noyée dans le texte */
+.pub-consent {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 13px; line-height: 1.5; color: var(--muted);
+}
+.pub-consent input { margin-top: 3px; flex-shrink: 0; }
+.pub-consent a { color: var(--coral); }
+
+/* Pages de contenu : confidentialité, mentions légales, articles */
+.pub-page {
+  max-width: 720px; margin: 0 auto; padding: 24px 28px 64px;
+  font-size: 15px; line-height: 1.7;
+}
+.pub-page h1 { font-family: var(--serif); font-size: 32px; font-weight: 400; margin-bottom: 6px; }
+.pub-page h2 { font-family: var(--serif); font-size: 21px; font-weight: 400; margin: 32px 0 10px; }
+.pub-page h3 { font-size: 15px; font-weight: 600; margin: 20px 0 6px; }
+.pub-page p, .pub-page ul { margin-bottom: 12px; }
+.pub-page ul { padding-left: 22px; }
+.pub-page a { color: var(--coral); }
+.pub-date { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+/* textarea et select réutilisent .f-in : on ajuste ce qui diffère */
+textarea.f-in { resize: vertical; min-height: 110px; font-family: var(--sans); }
+select.f-in { appearance: none; cursor: pointer; }
+/* .auth-screen occupait tout l'ecran ; dans la coquille publique elle
+   s'ajoute a l'en-tete. On neutralise le centrage vertical. */
+.pub-main .auth-screen { min-height: auto; padding: 8px 0 56px; }
