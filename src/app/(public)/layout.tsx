@@ -32,6 +32,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="pub-footer">
         <div className="pub-footer-links">
           <Link href="/confidentialite">Confidentialité</Link>
+          <Link href="/mentions-legales">Mentions légales</Link>
           <a href="mailto:contact@mania.sn">contact@mania.sn</a>
         </div>
         <p className="pub-footer-note">
