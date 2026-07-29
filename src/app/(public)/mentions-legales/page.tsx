@@ -10,7 +10,7 @@ export default function MentionsLegalesPage() {
       <p>
         Les mentions légales complètes de MANIA (éditeur, hébergeur, responsable de
         publication) seront publiées ici prochainement. Pour toute question, écrivez
-        à contact@mania.sn. Voir aussi notre{' '}
+        à contact@gcouca.com. Voir aussi notre{' '}
         <Link href="/confidentialite">politique de confidentialité</Link>.
       </p>
     </div>
