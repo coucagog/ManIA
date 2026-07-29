@@ -786,6 +786,53 @@ html, body {
 .pub-page a { color: var(--coral); }
 .pub-date { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
 
+/* ── Coquille publique : en-tête ── */
+.pub-hd { position: sticky; top: 0; z-index: 50; padding: 16px 20px; background: var(--bg); }
+.pub-hd-bar { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: var(--surface); border-radius: 20px; padding: 10px 14px 10px 22px; box-shadow: var(--neo-r); }
+.pub-hd-logo, .pub-ft-logo { display: inline-flex; align-items: baseline; font-family: var(--serif); font-weight: 400; font-size: 26px; letter-spacing: .5px; line-height: 1; color: var(--fg); text-decoration: none; }
+.pub-hd-logo .ia, .pub-ft-logo .ia { color: var(--coral); }
+.pub-hd-nav { display: flex; align-items: center; gap: 10px; }
+.pub-hd-item { position: relative; display: flex; align-items: center; gap: 11px; padding: 8px 14px; border-radius: 14px; color: var(--fg); text-decoration: none; }
+.pub-hd-ico { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 11px; display: flex; align-items: center; justify-content: center; }
+.pub-hd-ico--coral { background: var(--coral); color: #fff; }
+.pub-hd-ico--fg { background: var(--fg); color: var(--bg); }
+.pub-hd-lbl { display: flex; flex-direction: column; line-height: 1.15; font-weight: 500; font-size: 14.5px; }
+.pub-hd-sub { font-weight: 400; font-size: 11px; color: var(--muted); letter-spacing: .2px; }
+.pub-hd-item.is-active::after, .pub-hd-blog.is-active::after { content: ''; position: absolute; left: 15px; right: 15px; bottom: 1px; height: 2.5px; border-radius: 2px; background: var(--coral); }
+.pub-hd-blog { position: relative; padding: 8px 14px; border-radius: 14px; font-weight: 500; font-size: 14.5px; color: var(--fg); text-decoration: none; }
+.pub-hd-sep { width: 1px; height: 30px; background: var(--border); margin: 0 4px; }
+.pub-hd-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--coral); color: #fff; font-weight: 600; font-size: 14.5px; padding: 12px 22px; border-radius: 14px; text-decoration: none; box-shadow: 4px 4px 11px rgba(240,140,106,.35); transition: background .15s ease; }
+.pub-hd-cta:hover { background: var(--coral-d); color: #fff; }
+.pub-hd-burger { display: none; align-items: center; justify-content: center; width: 46px; height: 46px; border: none; border-radius: 13px; background: var(--surface); color: var(--fg); cursor: pointer; box-shadow: var(--neo-r-sm); }
+.pub-hd-panel { max-width: 1200px; margin: 12px auto 0; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border-radius: 18px; padding: 14px; box-shadow: var(--neo-r); }
+.pub-hd-pitem { display: flex; align-items: center; gap: 13px; padding: 12px; border-radius: 14px; color: var(--fg); text-decoration: none; }
+.pub-hd-pblog { padding: 14px 12px; border-radius: 14px; font-weight: 500; font-size: 16px; color: var(--fg); text-decoration: none; }
+.pub-hd-cta--full { justify-content: center; margin-top: 4px; }
+
+/* ── Coquille publique : pied de page ── */
+.pub-ft { padding: 20px 20px 34px; }
+.pub-ft-card { max-width: 1200px; margin: 0 auto; background: var(--surface); border-radius: 24px; padding: 36px 34px 28px; box-shadow: var(--neo-r); }
+.pub-ft-top { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 40px; }
+.pub-ft-tag { margin: 14px 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); max-width: 34ch; }
+.pub-ft-col h3 { margin: 0 0 14px; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.pub-ft-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; font-size: 14px; }
+.pub-ft-col a { color: var(--fg); text-decoration: none; }
+.pub-ft-col a:hover { color: var(--coral); }
+.pub-ft-div { height: 1px; background: var(--border); margin: 28px 0 18px; }
+.pub-ft-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+.pub-ft-note { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.pub-ft-legal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.pub-ft-legal a { color: var(--muted); text-decoration: none; }
+.pub-ft-legal a:hover { color: var(--coral); }
+.pub-ft-legal span { color: var(--muted); opacity: .6; }
+
+/* ── Coquille publique : responsive ── */
+@media (max-width: 820px) {
+  .pub-hd-nav { display: none; }
+  .pub-hd-burger { display: inline-flex; }
+  .pub-ft-top { grid-template-columns: 1fr; gap: 30px; }
+}
+
 /* textarea et select réutilisent .f-in : on ajuste ce qui diffère */
 textarea.f-in { resize: vertical; min-height: 110px; font-family: var(--sans); }
 select.f-in { appearance: none; cursor: pointer; }
