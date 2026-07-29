@@ -59,9 +59,15 @@ export default function CandidaturePage() {
 
           <span className="f-label">Secteur d&apos;activité *</span>
           <select className="f-in" name="secteur" defaultValue="autre" required>
-            <option value="ophtalmo">Ophtalmologie</option>
-            <option value="optique">Optique</option>
-            <option value="sante">Autre profession de santé</option>
+            <option value="sante">Santé (médecine, optique, paramédical)</option>
+            <option value="droit">Droit (avocat, notaire, huissier)</option>
+            <option value="finance">Banque, finance, assurance</option>
+            <option value="commerce">Commerce &amp; négoce</option>
+            <option value="restauration">Restauration &amp; hôtellerie</option>
+            <option value="immobilier">Immobilier</option>
+            <option value="artisanat">Artisanat &amp; BTP</option>
+            <option value="services">Services &amp; conseil</option>
+            <option value="education">Éducation &amp; formation</option>
             <option value="autre">Autre secteur</option>
           </select>
 

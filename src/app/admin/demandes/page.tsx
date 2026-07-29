@@ -14,9 +14,15 @@ import {
 } from '@/app/actions/demandes'
 
 const LIB_SECTEUR: Record<string, string> = {
-  ophtalmo: 'Ophtalmologie',
-  optique: 'Optique',
   sante: 'Santé',
+  droit: 'Droit',
+  finance: 'Finance / Assurance',
+  commerce: 'Commerce',
+  restauration: 'Restauration',
+  immobilier: 'Immobilier',
+  artisanat: 'Artisanat / BTP',
+  services: 'Services',
+  education: 'Éducation',
   autre: 'Autre',
 }
 

@@ -52,10 +52,12 @@ export default function ConfidentialitePage() {
         fournissez et contrôlez votre propre clé d&apos;accès à ce fournisseur.
       </p>
       <p>
-        <strong>Données de santé.</strong> Elles relèvent d&apos;un régime renforcé et
-        font l&apos;objet de mesures spécifiques. Ne transmettez pas de données
-        identifiantes de patients à votre agent sans avoir vérifié avec nous le cadre
-        applicable.
+        <strong>Données couvertes par le secret professionnel.</strong> En l&apos;état,
+        la plateforme n&apos;est pas ouverte au traitement de données identifiantes
+        relevant du secret professionnel — dossiers de vos clients ou de vos patients,
+        les données de santé étant le cas le plus strictement encadré. Pour ces usages,
+        les mesures techniques nécessaires et, le cas échéant, l&apos;autorisation
+        préalable de la CDP sont mises en place avec vous avant toute mise en service.
       </p>
 
       <h2>Durée de conservation</h2>
