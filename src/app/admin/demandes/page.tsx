@@ -66,18 +66,36 @@ export default async function AdminDemandesPage({
   const parStatut = Object.fromEntries(
     compteurs.map(c => [c.statut, c._count._all]),
   ) as Record<string, number>
+  const total = Object.values(parStatut).reduce((a, b) => a + b, 0)
 
   return (
     <div className="adm-page">
       <h1 className="adm-title">Candidatures</h1>
 
-      <div className="adm-filtres">
-        <a href="/admin/demandes">Toutes</a>
+      {/* Tuiles de statistiques — cliquables, chacune filtre la liste */}
+      <div className="adm-stats">
         {['nouvelle', 'qualifiee', 'acceptee', 'refusee'].map(st => (
-          <a key={st} href={`/admin/demandes?statut=${st}`}>
-            {LIB_STATUT[st]} ({parStatut[st] ?? 0})
+              <a
+              key={st}
+            href={`/admin/demandes?statut=${st}`}
+            className={`adm-tuile adm-tuile--${st}${statut === st ? ' is-active' : ''}`}
+          >
+            <div className="adm-tuile-num">{parStatut[st] ?? 0}</div>
+            <div className="adm-tuile-lbl">
+              <span className="adm-tuile-dot" aria-hidden="true" />
+              {LIB_STATUT[st]}
+            </div>
           </a>
         ))}
+      </div>
+
+      <div className="adm-filtres">
+            <a
+            href="/admin/demandes"
+          className={!statut || statut === 'toutes' ? 'is-active' : ''}
+        >
+          Toutes ({total})
+        </a>
       </div>
 
       {demandes.length === 0 && (
