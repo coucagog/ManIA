@@ -97,7 +97,7 @@ export default function CandidaturePage() {
 
             <span className="f-label">Cabinet / organisation</span>
             <input className="f-in" type="text" name="organisation" maxLength={160}
-                   placeholder="Cabinet, boutique, agence, atelier…" />
+                   placeholder="Cabinet, ONG, agence, atelier…" />
 
             <span className="f-label">Secteur d&apos;activité *</span>
             <select className="f-in" name="secteur" defaultValue="autre" required>
@@ -110,6 +110,8 @@ export default function CandidaturePage() {
               <option value="artisanat">Artisanat &amp; BTP</option>
               <option value="services">Services &amp; conseil</option>
               <option value="education">Éducation &amp; formation</option>
+              <option value="gouvernement">Administration publique</option>
+              <option value="ong">ONG</option>
               <option value="autre">Autre secteur</option>
             </select>
 

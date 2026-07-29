@@ -44,7 +44,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             <div className="pub-ft-col">
               <h3>Contact</h3>
               <ul>
-                <li><a href="mailto:contact@mania.sn">contact@mania.sn</a></li>
+                <li><a href="mailto:contact@gcouca.com">contact@gcouca.com</a></li>
                 <li><Link href="/login">Mon espace</Link></li>
               </ul>
             </div>
@@ -61,7 +61,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               <span aria-hidden="true">·</span>
               <Link href="/mentions-legales">Mentions légales</Link>
               <span aria-hidden="true">·</span>
-              <a href="mailto:contact@mania.sn">contact@mania.sn</a>
+              <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>
             </nav>
           </div>
         </div>
