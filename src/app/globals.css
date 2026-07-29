@@ -160,6 +160,24 @@ html, body {
 .auth-note { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.6; }
 .auth-error { font-size: 12px; color: #e05c5c; text-align: center; background: rgba(224,92,92,.08); border-radius: 8px; padding: 10px 14px; }
 
+/* ── Page candidature : volet rassurant + formulaire ── */
+.cand-page { max-width: 1080px; margin: 0 auto; padding: 40px 20px 64px; }
+.cand-eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--coral); }
+.cand-h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 40px; line-height: 1.1; letter-spacing: -.02em; max-width: 18ch; }
+.cand-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 24px; align-items: start; margin-top: 34px; }
+.cand-aside { display: flex; flex-direction: column; gap: 16px; }
+.cand-reassure { display: flex; gap: 15px; background: var(--surface); border-radius: var(--r); padding: 20px; box-shadow: var(--neo-r); }
+.cand-reassure-ico { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.cand-reassure-ico--coral { background: var(--coral); color: #fff; }
+.cand-reassure-ico--fg { background: var(--fg); color: var(--bg); }
+.cand-reassure h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 18px; line-height: 1.25; color: var(--fg); }
+.cand-reassure p { margin: 7px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.cand-form-card { background: var(--surface); border-radius: var(--r); padding: 30px 30px 26px; box-shadow: var(--neo-r); }
+@media (max-width: 760px) {
+  .cand-grid { grid-template-columns: 1fr; }
+  .cand-h1 { font-size: 32px; }
+}
+
 .twofa-row { display: flex; gap: 10px; justify-content: center; }
 
 .d-in {
