@@ -13,7 +13,7 @@ async function requireAdmin() {
   return session
 }
 
-const SECTEURS = ['sante', 'droit', 'finance', 'commerce', 'restauration', 'immobilier', 'artisanat', 'services', 'education', 'autre']
+const SECTEURS = ['sante', 'droit', 'finance', 'commerce', 'restauration', 'immobilier', 'artisanat', 'services', 'education', 'gouvernement', 'ong', 'autre']
 const STATUTS = ['nouvelle', 'qualifiee', 'acceptee', 'refusee']
 
 // ═══════════════════════════════════════════════════════════════════════════
