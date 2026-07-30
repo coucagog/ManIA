@@ -12,19 +12,8 @@ import {
   lierLocataire,
   supprimerDemande,
 } from '@/app/actions/demandes'
+import { LIB_SECTEUR } from '@/lib/secteurs'
 
-const LIB_SECTEUR: Record<string, string> = {
-  sante: 'Santé',
-  droit: 'Droit',
-  finance: 'Finance / Assurance',
-  commerce: 'Commerce',
-  restauration: 'Restauration',
-  immobilier: 'Immobilier',
-  artisanat: 'Artisanat / BTP',
-  services: 'Services',
-  education: 'Éducation',
-  autre: 'Autre',
-}
 
 const LIB_STATUT: Record<string, string> = {
   nouvelle: 'Nouvelle',

@@ -4,6 +4,7 @@
 import { useActionState } from 'react'
 import Link from 'next/link'
 import { creerDemande } from '@/app/actions/demandes'
+import { SECTEURS, SECTEUR_DEFAUT } from '@/lib/secteurs'
 
 export default function CandidaturePage() {
   const [state, action, pending] = useActionState(creerDemande, undefined)
@@ -100,19 +101,10 @@ export default function CandidaturePage() {
                    placeholder="Cabinet, ONG, agence, atelier…" />
 
             <span className="f-label">Secteur d&apos;activité *</span>
-            <select className="f-in" name="secteur" defaultValue="autre" required>
-              <option value="sante">Santé (médecine, optique, paramédical)</option>
-              <option value="droit">Droit (avocat, notaire, huissier)</option>
-              <option value="finance">Banque, finance, assurance</option>
-              <option value="commerce">Commerce &amp; négoce</option>
-              <option value="restauration">Restauration &amp; hôtellerie</option>
-              <option value="immobilier">Immobilier</option>
-              <option value="artisanat">Artisanat &amp; BTP</option>
-              <option value="services">Services &amp; conseil</option>
-              <option value="education">Éducation &amp; formation</option>
-              <option value="gouvernement">Administration publique</option>
-              <option value="ong">ONG</option>
-              <option value="autre">Autre secteur</option>
+            <select className="f-in" name="secteur" defaultValue={SECTEUR_DEFAUT} required>
+              {SECTEURS.map(s => (
+                <option key={s.slug} value={s.slug}>{s.long}</option>
+              ))}
             </select>
 
             <span className="f-label">Votre besoin *</span>

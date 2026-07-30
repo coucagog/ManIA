@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db'
 import { verifySession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { SECTEUR_SLUGS } from '@/lib/secteurs'
 
 // Reprend exactement la convention de admin.ts
 async function requireAdmin() {
@@ -13,7 +14,6 @@ async function requireAdmin() {
   return session
 }
 
-const SECTEURS = ['sante', 'droit', 'finance', 'commerce', 'restauration', 'immobilier', 'artisanat', 'services', 'education', 'gouvernement', 'ong', 'autre']
 const STATUTS = ['nouvelle', 'qualifiee', 'acceptee', 'refusee']
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -52,7 +52,7 @@ export async function creerDemande(
   if (nom.length > 120 || besoin.length > 4000) {
     return { error: 'Champs trop longs.' }
   }
-  if (!SECTEURS.includes(secteur)) {
+  if (!SECTEUR_SLUGS.includes(secteur)) {
     return { error: 'Secteur invalide.' }
   }
   // Le consentement est OBLIGATOIRE et sa date est enregistrée (loi 2008-12).
