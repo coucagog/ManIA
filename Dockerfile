@@ -1,12 +1,12 @@
 # ── Stage 1 : dépendances (compilation des modules natifs) ──────────────────
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 RUN apk add --no-cache python3 make g++ libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
 # ── Stage 2 : build de l'application ────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -15,7 +15,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # ── Stage 3 : runner de production ──────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 RUN apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 ENV NODE_ENV=production \
