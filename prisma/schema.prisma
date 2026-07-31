@@ -200,6 +200,48 @@ model TenantMember {
 //  Demandes d'agent IA (formulaire public de candidature)
 // ─────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────
+//  Blog (décision §23 : les articles vivent en base, comme les cours)
+// ─────────────────────────────────────────────────────────────
+
+model Article {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  titre        String
+  chapo        String              // accroche courte (liste, aperçu landing, description SEO)
+  contenu      String              // mini-markdown : ## ### - > ``` **gras** `code` [lien](url)
+  categorie    String    @default("bonnes-pratiques") // cf. src/lib/categories-blog.ts
+  imageUrl     String?             // illustration optionnelle ; sinon aplat généré depuis le slug
+  tempsLecture Int?                // minutes ; calculé depuis le contenu si absent
+  statut       String    @default("brouillon")  // brouillon | publie
+  publieAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([statut, publieAt])
+}
+
+// Demande d'accès à la plateforme de formation (formulaire public /formation).
+// Même philosophie que DemandeAgent : file d'attente, traitement humain,
+// consentement horodaté (loi 2008-12). Modèle SÉPARÉ : les champs et le
+// parcours de traitement divergeront (comptes d'équipe, paiement Wave/OM…).
+model DemandeFormation {
+  id           String    @id @default(cuid())
+  nom          String
+  email        String
+  telephone    String?
+  organisation String?
+  secteur      String    @default("autre")
+  besoin       String                          // besoin de formation, texte libre
+  statut       String    @default("nouvelle")  // nouvelle | qualifiee | acceptee | refusee
+  consentement DateTime                        // horodatage du consentement (loi 2008-12)
+  noteInterne  String?                         // usage interne, jamais montré au prospect
+  createdAt    DateTime  @default(now())
+  traiteeAt    DateTime?
+
+  @@index([statut, createdAt])
+}
+
 model DemandeAgent {
   id           String    @id @default(cuid())
   nom          String

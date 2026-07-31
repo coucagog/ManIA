@@ -10,6 +10,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/session'
+import { prisma } from '@/lib/db'
+import { LIB_CATEGORIE } from '@/lib/categories-blog'
+import { tempsLectureEstime } from '@/lib/article-render'
+import { toneDe } from '@/lib/blog-tone'
 
 export const metadata = {
   title: 'MANIA — Agents IA métier et formation, au Sénégal',
@@ -17,9 +21,23 @@ export const metadata = {
     'MANIA configure des agents IA pour les professionnels de tous secteurs et forme vos équipes aux bonnes pratiques des LLM. Données traitées au Sénégal, conformément à la loi n°2008-12.',
 }
 
+function dateCourteFr(d: Date) {
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  }).format(d)
+}
+
 export default async function LandingPage() {
   const session = await getSession()
   if (session?.userId) redirect('/dashboard') // ← retirer cette ligne pour l'option A
+
+  // Aperçu blog : les 3 derniers articles publiés ; tant qu'il n'y en a pas,
+  // la landing garde ses cartes « à venir ».
+  const articles = await prisma.article.findMany({
+    where: { statut: 'publie' },
+    orderBy: { publieAt: 'desc' },
+    take: 3,
+  })
 
   return (
     <>
@@ -166,35 +184,59 @@ export default async function LandingPage() {
         <div className="land-blog-head">
           <div>
             <p className="land-eyebrow">Le blog</p>
-            <h2 className="land-h2">Bientôt : nos bonnes pratiques</h2>
+            <h2 className="land-h2">
+              {articles.length > 0 ? 'Nos bonnes pratiques' : 'Bientôt : nos bonnes pratiques'}
+            </h2>
           </div>
           <Link href="/blog" className="land-blog-all">Tous les articles →</Link>
         </div>
         <div className="land-blog">
-          <article className="land-blog-card">
-            <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
-            <div className="land-blog-body">
-              <span className="land-blog-cat">Bonnes pratiques</span>
-              <h3>Pourquoi un agent doit connaître votre métier</h3>
-              <p className="land-blog-meta">À venir · 5 min</p>
-            </div>
-          </article>
-          <article className="land-blog-card">
-            <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
-            <div className="land-blog-body">
-              <span className="land-blog-cat">Sécurité</span>
-              <h3>Secret professionnel et IA : ce que dit la loi</h3>
-              <p className="land-blog-meta">À venir · 7 min</p>
-            </div>
-          </article>
-          <article className="land-blog-card">
-            <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
-            <div className="land-blog-body">
-              <span className="land-blog-cat">Formation</span>
-              <h3>Prompt, contexte, agent : le vocabulaire utile</h3>
-              <p className="land-blog-meta">À venir · 4 min</p>
-            </div>
-          </article>
+          {articles.length > 0 ? (
+            articles.map(a => (
+              <Link href={`/blog/${a.slug}`} className="land-blog-card" key={a.id} style={{ textDecoration: 'none' }}>
+                {a.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="land-blog-img" src={a.imageUrl} alt="" style={{ objectFit: 'cover', width: '100%' }} />
+                ) : (
+                  <div className={`land-blog-img ${toneDe(a.slug)}`} aria-hidden="true" />
+                )}
+                <div className="land-blog-body">
+                  <span className="land-blog-cat">{LIB_CATEGORIE[a.categorie] ?? a.categorie}</span>
+                  <h3>{a.titre}</h3>
+                  <p className="land-blog-meta">
+                    {a.publieAt ? dateCourteFr(a.publieAt) : ''} · {a.tempsLecture ?? tempsLectureEstime(a.contenu)} min
+                  </p>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <>
+              <article className="land-blog-card">
+                <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
+                <div className="land-blog-body">
+                  <span className="land-blog-cat">Bonnes pratiques</span>
+                  <h3>Pourquoi un agent doit connaître votre métier</h3>
+                  <p className="land-blog-meta">À venir · 5 min</p>
+                </div>
+              </article>
+              <article className="land-blog-card">
+                <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
+                <div className="land-blog-body">
+                  <span className="land-blog-cat">Sécurité</span>
+                  <h3>Secret professionnel et IA : ce que dit la loi</h3>
+                  <p className="land-blog-meta">À venir · 7 min</p>
+                </div>
+              </article>
+              <article className="land-blog-card">
+                <div className="land-blog-img" aria-hidden="true"><span>image · 16:10</span></div>
+                <div className="land-blog-body">
+                  <span className="land-blog-cat">Formation</span>
+                  <h3>Prompt, contexte, agent : le vocabulaire utile</h3>
+                  <p className="land-blog-meta">À venir · 4 min</p>
+                </div>
+              </article>
+            </>
+          )}
         </div>
       </section>
 

@@ -11,12 +11,13 @@ export default async function AdminPage() {
   const user = await prisma.user.findUnique({ where: { id: session.userId } })
   if (!user) return null
 
-  const [userCount, courseCount, chapterCount, progressList, demandesCount] = await Promise.all([
+  const [userCount, courseCount, chapterCount, progressList, demandesCount, demandesFormationCount] = await Promise.all([
     prisma.user.count(),
     prisma.course.count(),
     prisma.chapter.count(),
     prisma.progress.findMany(),
     prisma.demandeAgent.count({ where: { statut: { in: ['nouvelle', 'qualifiee'] } } }),
+    prisma.demandeFormation.count({ where: { statut: { in: ['nouvelle', 'qualifiee'] } } }),
   ])
 
   const completed = progressList.filter(p => p.percentage === 100).length
@@ -42,13 +43,14 @@ export default async function AdminPage() {
           </div>
 
           {/* Stats */}
-          <div className="sec-grid" style={{ gridTemplateColumns: 'repeat(5,1fr)', marginBottom: '32px' }}>
+          <div className="sec-grid" style={{ gridTemplateColumns: 'repeat(6,1fr)', marginBottom: '32px' }}>
             {[
               { label: 'Utilisateurs', value: userCount, sub: 'comptes actifs', href: '/admin/users' },
               { label: 'Cours', value: courseCount, sub: `${chapterCount} chapitres`, href: '/admin/cours' },
               { label: 'En cours', value: inProgress, sub: 'progressions actives' },
               { label: 'Terminés', value: completed, sub: `moy. ${avgPct}%` },
               { label: 'Candidatures', value: demandesCount, sub: 'en attente', href: '/admin/demandes' },
+              { label: 'Formation', value: demandesFormationCount, sub: 'demandes d’accès', href: '/admin/demandes-formation' },
             ].map(s => (
               <div key={s.label} className="sec-card" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.label}</div>
