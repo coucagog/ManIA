@@ -33,7 +33,12 @@ export async function POST(req: NextRequest) {
 
   const rule = ALLOWED[typeHint]
   if (rule) {
-    if (!rule.mime.includes(file.type)) {
+    // SVG accepté pour les images, mais ADMIN uniquement : un SVG peut
+    // embarquer du script (servi avec une CSP neutralisante par /api/files,
+    // on limite quand même la surface aux comptes de confiance).
+    const svgAdmin =
+      typeHint === 'image' && file.type === 'image/svg+xml' && session.role === 'admin'
+    if (!rule.mime.includes(file.type) && !svgAdmin) {
       return NextResponse.json({ error: `Type de fichier non autorisé (${file.type})` }, { status: 400 })
     }
     if (file.size > rule.maxBytes) {

@@ -8,11 +8,16 @@ const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads')
 
 const MIME: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-  webp: 'image/webp', gif: 'image/gif',
+  webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml',
   pdf: 'application/pdf',
   mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
   mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4',
 }
+
+// ⚠️ Un SVG est un document XML qui peut embarquer du <script>. Inoffensif
+// dans une balise <img> (scripts désactivés), mais pas si le fichier est
+// ouvert directement dans un onglet. Cette CSP neutralise ce cas.
+const CSP_SVG = "script-src 'none'"
 
 function nodeToWeb(nodeStream: Readable): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -78,6 +83,7 @@ export async function GET(
         'Content-Length': String(fileSize),
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'public, max-age=31536000, immutable',
+        ...(ext === 'svg' ? { 'Content-Security-Policy': CSP_SVG } : {}),
       },
     }
   )
