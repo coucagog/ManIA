@@ -103,13 +103,15 @@ export async function createCourse(_state: { error?: string; ok?: boolean } | un
   const duration = parseInt(formData.get('duration') as string) || 0
   const level = (formData.get('level') as string).trim()
   const thumbClass = (formData.get('thumbClass') as string).trim() || 't1'
+  const payant = formData.get('payant') === 'oui'
+  const prix = payant ? (parseInt(formData.get('prix') as string) || 0) : null
 
   if (!title || !slug || !speaker || !parcours) return { error: 'Titre, slug, intervenant et parcours requis.' }
 
   const existing = await prisma.course.findUnique({ where: { slug } })
   if (existing) return { error: 'Ce slug est déjà utilisé.' }
 
-  const course = await prisma.course.create({ data: { title, slug, speaker, parcours, format, duration, level, thumbClass } })
+  const course = await prisma.course.create({ data: { title, slug, speaker, parcours, format, duration, level, thumbClass, payant, prix } })
   revalidatePath('/admin/cours')
   revalidatePath('/catalogue')
 
@@ -143,13 +145,15 @@ export async function updateCourse(_state: { error?: string; ok?: boolean } | un
   const duration = parseInt(formData.get('duration') as string) || 0
   const level = (formData.get('level') as string).trim()
   const thumbClass = (formData.get('thumbClass') as string).trim() || 't1'
+  const payant = formData.get('payant') === 'oui'
+  const prix = payant ? (parseInt(formData.get('prix') as string) || 0) : null
 
   if (!title || !slug) return { error: 'Titre et slug requis.' }
 
   const conflict = await prisma.course.findFirst({ where: { slug, NOT: { id } } })
   if (conflict) return { error: 'Ce slug est déjà utilisé.' }
 
-  await prisma.course.update({ where: { id }, data: { title, slug, speaker, parcours, format, duration, level, thumbClass } })
+  await prisma.course.update({ where: { id }, data: { title, slug, speaker, parcours, format, duration, level, thumbClass, payant, prix } })
   revalidatePath('/admin/cours')
   revalidatePath(`/admin/cours/${id}`)
   return { ok: true }

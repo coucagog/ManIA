@@ -45,6 +45,8 @@ model Course {
   duration    Int
   level       String
   thumbClass  String     @default("t1")
+  payant      Boolean    @default(false)
+  prix        Int?       // en FCFA ; renseigné seulement si payant = true
   createdAt   DateTime   @default(now())
   chapters    Chapter[]
   progress    Progress[]

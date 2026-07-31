@@ -1,12 +1,13 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { createCourse, updateCourse, deleteCourse } from '@/app/actions/admin'
 import Link from 'next/link'
 
 type CourseData = {
   id: string; title: string; slug: string; speaker: string; parcours: string
   format: string; duration: number; level: string; thumbClass: string
+  payant?: boolean; prix?: number | null
 }
 type Props = { mode: 'create' } | { mode: 'edit'; course: CourseData }
 
@@ -14,6 +15,7 @@ export default function AdminCourseForm(props: Props) {
   const fn = props.mode === 'create' ? createCourse : updateCourse
   const [state, action, pending] = useActionState<{ error?: string; ok?: boolean } | undefined, FormData>(fn, undefined)
   const c = props.mode === 'edit' ? props.course : null
+  const [payant, setPayant] = useState<boolean>(c?.payant ?? false)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -41,6 +43,21 @@ export default function AdminCourseForm(props: Props) {
                 {['t1','t2','t3','t4','t5','t6'].map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Tarif</label>
+              <select className="f-in" name="payant" value={payant ? 'oui' : 'non'} onChange={e => setPayant(e.target.value === 'oui')} style={{ width: '100%', fontSize: '13px' }}>
+                <option value="non">Gratuit</option>
+                <option value="oui">Payant</option>
+              </select>
+            </div>
+            {payant && (
+              <div>
+                <label style={{ fontSize: '11px', color: 'var(--muted)', display: 'block', marginBottom: '5px' }}>Prix (FCFA)</label>
+                <input className="f-in" name="prix" type="number" min={0} step={500} defaultValue={c?.prix ?? ''} placeholder="ex : 15000" style={{ width: '100%', fontSize: '13px' }} />
+              </div>
+            )}
           </div>
 
           {state?.error && <p style={{ color: 'var(--coral)', fontSize: '12px' }}>{state.error}</p>}

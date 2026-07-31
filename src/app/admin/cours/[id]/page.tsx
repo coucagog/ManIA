@@ -40,6 +40,7 @@ export default async function AdminCoursePage({ params }: { params: Promise<{ id
                 speaker: course.speaker, parcours: course.parcours,
                 format: course.format, duration: course.duration,
                 level: course.level, thumbClass: course.thumbClass,
+                payant: course.payant, prix: course.prix,
               }}
             />
             <AdminChaptersClient
