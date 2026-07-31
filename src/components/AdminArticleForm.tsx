@@ -8,6 +8,7 @@
 import { useActionState } from 'react'
 import { createArticle, updateArticle, deleteArticle } from '@/app/actions/blog'
 import { CATEGORIES_BLOG, CATEGORIE_DEFAUT } from '@/lib/categories-blog'
+import ArticleImageUpload from '@/components/ArticleImageUpload'
 import Link from 'next/link'
 
 type ArticleData = {
@@ -70,11 +71,12 @@ export default function AdminArticleForm(props: Props) {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            <Field label="Temps de lecture (min) — calculé si vide" name="tempsLecture"
-                   type="number" defaultValue={a?.tempsLecture != null ? String(a.tempsLecture) : ''} />
-            <Field label="Image (URL) — optionnelle, sinon aplat généré" name="imageUrl"
-                   defaultValue={a?.imageUrl ?? ''} placeholder="/uploads/…" />
+          <Field label="Temps de lecture (min) — calculé si vide" name="tempsLecture"
+                 type="number" defaultValue={a?.tempsLecture != null ? String(a.tempsLecture) : ''} />
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', marginTop: '4px' }}>
+            <div style={lbl}>Image (optionnelle — sinon un aplat de couleur est généré)</div>
+            <ArticleImageUpload initialUrl={a?.imageUrl} />
           </div>
 
           {state?.error && <p style={{ color: 'var(--coral)', fontSize: '12px' }}>{state.error}</p>}
