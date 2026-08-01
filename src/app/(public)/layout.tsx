@@ -1,21 +1,39 @@
 // src/app/(public)/layout.tsx
 //
-// Coquille PUBLIQUE partagée : candidature, confidentialité, formation, blog,
-// mentions légales, et bientôt la landing.
+// Coquille PUBLIQUE partagée : landing, candidature, confidentialité,
+// formation, blog, mentions légales.
 //
 // ℹ️ Un groupe de routes entre parenthèses n'apparaît PAS dans l'URL :
 //    (public)/candidature  →  /candidature
 //
-// ⚠️ Aucun appel à verifySession() ici : ces pages sont publiques par nature.
-//    Ne jamais y placer de contenu réservé.
+// ⚠️ verifySession() N'EST PAS appelé ici (il redirigerait vers /login) :
+//    ces pages restent accessibles sans connexion. On utilise getSession(),
+//    qui renvoie simplement `null` si personne n'est connecté — ne jamais
+//    y placer de contenu réservé pour autant.
+//
+// [DECISION] (2026-08-01) Depuis que la landing n'exclut plus les visiteurs
+// connectés (option A, cf. (public)/page.tsx), l'accès à l'espace personnel
+// se fait ici : PublicHeader reçoit le profil courant (ou null) pour afficher
+// soit l'avatar de l'utilisateur (→ /dashboard), soit le bouton générique
+// « Mon espace » (→ /login).
 
 import Link from 'next/link'
 import PublicHeader from '@/components/PublicHeader'
+import { getSession } from '@/lib/session'
+import { prisma } from '@/lib/db'
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const session = await getSession()
+  const user = session?.userId
+    ? await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { name: true, initials: true, photoUrl: true },
+      })
+    : null
+
   return (
     <div className="pub-shell">
-      <PublicHeader />
+      <PublicHeader user={user} />
 
       <main className="pub-main">{children}</main>
 

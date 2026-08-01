@@ -6,7 +6,7 @@ type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'expe
 export default function Sidebar({ active, initials, photoUrl }: Props) {
   return (
     <aside className="sidebar">
-      <div className="sb-logo"><span className="man">M</span><span className="ia">IA</span></div>
+      <Link href="/" className="sb-logo" aria-label="MANIA — accueil"><span className="man">M</span><span className="ia">IA</span></Link>
       <nav className="sb-nav">
         <Link href="/dashboard" className={`nav-btn${active === 'dashboard' ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>

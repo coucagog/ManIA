@@ -40,7 +40,7 @@ export default async function ProfilPage() {
         <div className="page">
 
           {/* Hero */}
-          <div className="sec-card" style={{ marginBottom: '28px', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+          <div className="sec-card" style={{ marginBottom: '28px', display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
             <div style={{
               width: '80px', height: '80px', borderRadius: '50%', flexShrink: 0,
               background: user.photoUrl ? 'transparent' : 'var(--coral)',

@@ -5,11 +5,24 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function PublicHeader() {
+type PublicUser = { name: string; initials: string; photoUrl: string | null } | null
+
+// « Mon espace » sert deux publics :
+// - visiteur non connecté → bouton corail « Mon espace » vers /login ;
+// - déjà authentifié → RÉPLIQUE TEL QUEL le motif du Topbar de l'espace
+//   apprenant (pilule .avatar 28px + prénom) : mêmes styles inline, à
+//   l'octet près, seul le lien change (/dashboard, pas /profil).
+export default function PublicHeader({ user }: { user: PublicUser }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
   const close = () => setOpen(false)
+  const firstName = user?.name.split(' ')[0]
+
+  const avatarInner = user?.photoUrl
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={user.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+    : user?.initials
 
   return (
     <header className="pub-hd">
@@ -45,13 +58,33 @@ export default function PublicHeader() {
 
           <span className="pub-hd-sep" aria-hidden="true" />
 
-          <Link href="/login" className="pub-hd-cta">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            Mon espace
-          </Link>
+          {user ? (
+            <Link href="/dashboard" style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '3px 12px 3px 3px',
+              background: 'var(--inset)', border: '1px solid var(--border)',
+              borderRadius: '999px', textDecoration: 'none', color: 'var(--fg)',
+              fontSize: '13px', fontWeight: 500,
+            }}>
+              <div className="avatar" style={{
+                width: '28px', height: '28px', fontSize: '11px', flexShrink: 0,
+                ...(user.photoUrl ? { padding: 0, overflow: 'hidden' } : {}),
+              }}>
+                {avatarInner}
+              </div>
+              <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {firstName}
+              </span>
+            </Link>
+          ) : (
+            <Link href="/login" className="pub-hd-cta">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Mon espace
+            </Link>
+          )}
         </nav>
 
         {/* Burger mobile */}
@@ -96,13 +129,26 @@ export default function PublicHeader() {
 
           <Link href="/blog" className="pub-hd-pblog" onClick={close}>Blog</Link>
 
-          <Link href="/login" className="pub-hd-cta pub-hd-cta--full" onClick={close}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            Mon espace
-          </Link>
+          {user ? (
+            <Link href="/dashboard" className="pub-hd-pitem" onClick={close}>
+              <span
+                className="avatar"
+                aria-hidden="true"
+                style={user.photoUrl ? { padding: 0, overflow: 'hidden' } : undefined}
+              >
+                {avatarInner}
+              </span>
+              <span className="pub-hd-lbl">Mon espace<span className="pub-hd-sub">{user.name}</span></span>
+            </Link>
+          ) : (
+            <Link href="/login" className="pub-hd-cta pub-hd-cta--full" onClick={close}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+              Mon espace
+            </Link>
+          )}
         </div>
       )}
     </header>

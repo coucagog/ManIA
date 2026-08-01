@@ -1,15 +1,16 @@
 // src/app/(public)/page.tsx
 //
 // Landing publique. Remplace l'ancien src/app/page.tsx (qui ne faisait que
-// rediriger). Un visiteur déjà connecté file droit à son espace ; la vitrine
-// est réservée aux prospects anonymes.
+// rediriger). [DECISION] Option A (2026-08-01) : la vitrine s'affiche pour
+// TOUT LE MONDE, connecté ou non — un utilisateur déjà authentifié peut
+// naviguer les pages publiques librement. L'accès à son espace se fait via
+// l'avatar affiché dans PublicHeader (cf. (public)/layout.tsx), plus besoin
+// de rediriger la landing elle-même.
 //
 // ⚠️ Deux fichiers ne peuvent pas résoudre la même URL : en ajoutant cette page,
 //    il FAUT supprimer src/app/page.tsx (sinon collision « / » au build).
 
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/db'
 import { LIB_CATEGORIE } from '@/lib/categories-blog'
 import { tempsLectureEstime } from '@/lib/article-render'
@@ -28,9 +29,6 @@ function dateCourteFr(d: Date) {
 }
 
 export default async function LandingPage() {
-  const session = await getSession()
-  if (session?.userId) redirect('/dashboard') // ← retirer cette ligne pour l'option A
-
   // Aperçu blog : les 3 derniers articles publiés ; tant qu'il n'y en a pas,
   // la landing garde ses cartes « à venir ».
   const articles = await prisma.article.findMany({
@@ -53,7 +51,7 @@ export default async function LandingPage() {
               pratiques des LLM. Vos données restent maîtrisées.
             </p>
             <div className="land-hero-actions">
-              <Link href="/candidature" className="land-btn">Demander un agent →</Link>
+              <Link href="/candidature" className="btn-cta-sm">Demander un agent →</Link>
               <Link href="/formation" className="land-btn-ghost">Découvrir la formation</Link>
             </div>
           </div>
@@ -112,7 +110,7 @@ export default async function LandingPage() {
               <li><span aria-hidden="true">·</span> Espace client isolé, données maîtrisées</li>
               <li><span aria-hidden="true">·</span> Mise en service accompagnée, pas en libre-service</li>
             </ul>
-            <Link href="/candidature" className="land-btn land-path-btn">Demander un agent →</Link>
+            <Link href="/candidature" className="btn-cta-sm land-path-btn">Demander un agent →</Link>
           </div>
 
           <div className="land-path">
@@ -134,7 +132,7 @@ export default async function LandingPage() {
               <li><span aria-hidden="true">·</span> Bonnes pratiques, sécurité et limites des modèles</li>
               <li><span aria-hidden="true">·</span> Cas concrets adaptés à votre métier</li>
             </ul>
-            <Link href="/formation" className="land-btn-soft land-path-btn">Voir la formation →</Link>
+            <Link href="/formation" className="btn-soft-sm land-path-btn">Voir la formation →</Link>
           </div>
         </div>
       </section>
@@ -246,8 +244,8 @@ export default async function LandingPage() {
           <h2>Prêt à confier une tâche à un agent ?</h2>
           <p>Décrivez votre activité et votre besoin. Nous étudions chaque demande et revenons vers vous par e-mail — chaque agent est configuré pour un métier précis.</p>
           <div className="land-cta-actions">
-            <Link href="/candidature" className="land-btn">Demander un agent →</Link>
-            <Link href="/formation" className="land-btn-soft">Découvrir la formation</Link>
+            <Link href="/candidature" className="btn-cta-sm">Demander un agent →</Link>
+            <Link href="/formation" className="btn-soft-sm">Découvrir la formation</Link>
           </div>
         </div>
       </section>

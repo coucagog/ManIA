@@ -228,12 +228,14 @@ html, body {
 }
 
 .sb-logo {
+  display: block;
   font-family: var(--serif);
   font-size: 19px;
   font-weight: 400;
   line-height: 1;
   margin-bottom: 18px;
   text-align: center;
+  text-decoration: none;
 }
 
 .sb-logo .man { color: var(--fg); }
@@ -803,6 +805,8 @@ html, body {
 .pub-hd-sep { width: 1px; height: 30px; background: var(--border); margin: 0 4px; }
 .pub-hd-cta { display: inline-flex; align-items: center; gap: 7px; background: var(--coral); color: #fff; font-weight: 500; font-size: 13px; padding: 9px 16px; border-radius: var(--r-sm); text-decoration: none; box-shadow: 4px 4px 11px rgba(240,140,106,.3); transition: background .15s ease; }
 .pub-hd-cta:hover { background: var(--coral-d); color: #fff; }
+/* Quand connecté, « Mon espace » RÉUTILISE la classe .avatar (Sidebar/Topbar)
+   sans surcouche — parité pixel garantie avec l'espace apprenant. */
 .pub-hd-burger { display: none; align-items: center; justify-content: center; width: 46px; height: 46px; border: none; border-radius: 13px; background: var(--surface); color: var(--fg); cursor: pointer; box-shadow: var(--neo-r-sm); }
 .pub-hd-panel { max-width: 1200px; margin: 12px auto 0; display: flex; flex-direction: column; gap: 8px; background: var(--surface); border-radius: 18px; padding: 14px; box-shadow: var(--neo-r); }
 .pub-hd-pitem { display: flex; align-items: center; gap: 13px; padding: 12px; border-radius: 14px; color: var(--fg); text-decoration: none; }
