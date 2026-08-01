@@ -40,7 +40,7 @@
 nextjs-portal, [data-issues], [data-nextjs-dialog-overlay], [data-nextjs-toast] { display: none !important; }
 
 html, body {
-  height: 100%;
+  min-height: 100%;
   font-family: var(--sans);
   background: var(--bg);
   color: var(--fg);
