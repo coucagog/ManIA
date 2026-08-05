@@ -22,7 +22,7 @@ export default function ConfidentialitePage() {
       <h2>Qui traite vos données</h2>
       <p>
         MANIA, établi à Dakar (Sénégal), est responsable du traitement des données
-        collectées sur ce site. Contact : <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>.
+        collectées sur ce site. Contact : <a href="mailto:contact@mania.sn">contact@mania.sn</a>.
       </p>
 
       <h2>Ce que nous collectons, et pourquoi</h2>
@@ -79,7 +79,7 @@ export default function ConfidentialitePage() {
         Conformément à la loi n°2008-12 du 25 janvier 2008 sur la protection des
         données à caractère personnel, vous disposez d&apos;un droit d&apos;accès, de
         rectification, d&apos;opposition et de suppression. Écrivez à{' '}
-        <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>. Vous pouvez saisir la
+        <a href="mailto:contact@mania.sn">contact@mania.sn</a>. Vous pouvez saisir la
         Commission de protection des données personnelles (CDP) du Sénégal.
       </p>
 

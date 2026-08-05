@@ -41,7 +41,7 @@ export default function MentionsLegalesPage() {
         </p>
         <p>
           Siège : Dakar, Sénégal.<br />
-          Contact : <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>
+          Contact : <a href="mailto:contact@mania.sn">contact@mania.sn</a>
         </p>
       </section>
 
@@ -99,7 +99,7 @@ export default function MentionsLegalesPage() {
         <p>
           Pour toute question relative aux présentes mentions légales ou au
           fonctionnement du site, écrivez-nous à{' '}
-          <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>.
+          <a href="mailto:contact@mania.sn">contact@mania.sn</a>.
           Nous nous efforçons de répondre sous quelques jours ouvrés.
         </p>
       </section>

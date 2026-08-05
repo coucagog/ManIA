@@ -62,7 +62,7 @@ export default async function PublicLayout({ children }: { children: React.React
             <div className="pub-ft-col">
               <h3>Contact</h3>
               <ul>
-                <li><a href="mailto:contact@gcouca.com">contact@gcouca.com</a></li>
+                <li><a href="mailto:contact@mania.sn">contact@mania.sn</a></li>
                 <li><Link href="/login">Mon espace</Link></li>
               </ul>
             </div>
@@ -79,7 +79,7 @@ export default async function PublicLayout({ children }: { children: React.React
               <span aria-hidden="true">·</span>
               <Link href="/mentions-legales">Mentions légales</Link>
               <span aria-hidden="true">·</span>
-              <a href="mailto:contact@gcouca.com">contact@gcouca.com</a>
+              <a href="mailto:contact@mania.sn">contact@mania.sn</a>
             </nav>
           </div>
         </div>
