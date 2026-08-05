@@ -13,6 +13,8 @@ import {
   supprimerDemande,
 } from '@/app/actions/demandes'
 import { LIB_SECTEUR } from '@/lib/secteurs'
+import { ProvisionPanel } from '@/components/ProvisionPanel'
+import { DeprovisionButton } from '@/components/DeprovisionButton'
 
 
 const LIB_STATUT: Record<string, string> = {
@@ -173,16 +175,28 @@ export default async function AdminDemandesPage({
 
           {/* Rappel du parcours : le script n'est PAS lancé depuis le web
               (jamais de docker.sock dans mania-app). */}
+          {/* Provisioning en un clic (via le démon, hors docker.sock). */}
           {d.statut === 'qualifiee' && (
-            <p className="adm-aide">
-              Étape suivante, en SSH sur le VPS :
-              <code>
-                sudo /opt/hermes/gabarit/nouveau-tenant.sh &lt;slug&gt; &quot;{d.organisation ?? d.nom}&quot; \
-                &quot;{LIB_SECTEUR[d.secteur] ?? 'assistance generale'}&quot; &quot;Ridwan&quot; \
-                --owner={d.email} --pack={d.secteur}
-              </code>
-              Créer d&apos;abord le compte utilisateur avec cet e-mail.
-            </p>
+            <div className="adm-aide">
+              <p>
+                Provisionner le locataire — <strong>créer d&apos;abord le compte
+                utilisateur</strong> avec l&apos;e-mail <code>{d.email}</code> :
+              </p>
+              <ProvisionPanel
+                defaultSlug={d.tenantSlug ?? ''}
+                name={d.organisation ?? d.nom}
+                sector={LIB_SECTEUR[d.secteur] ?? 'assistance generale'}
+                ownerEmail={d.email}
+                pack={d.secteur}
+              />
+            </div>
+          )}
+
+          {/* Locataire déjà lié : suppression possible (irréversible). */}
+          {d.tenantSlug && (
+            <div className="adm-aide">
+              <DeprovisionButton slug={d.tenantSlug} />
+            </div>
           )}
         </article>
       ))}

@@ -47,3 +47,18 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# --- Ajouts : ne jamais committer secrets, base, ni fichiers d'infra locaux ---
+.env
+.env.*
+prod.db
+prod.db.bak-*
+public/uploads/
+# fichiers d'infra deposes dans /opt/mania mais hors depot app
+main.py
+mania-provisiond.service
+desprovisionner-tenant.sh
+patch-nouveau-tenant.sh*
+deposer-integration.sh
+transcription.zip
+STACK-3.md

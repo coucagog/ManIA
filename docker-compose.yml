@@ -25,9 +25,15 @@ services:
       NEXT_PUBLIC_BASE_URL: "https://${DOMAIN}"
       CRON_SECRET: "${CRON_SECRET}"
       PROVISIONING_SECRET: "${PROVISIONING_SECRET}"
+      # ... (garde tout ton contenu existant) ...
+      # ▼ AJOUT : le MÊME secret que /opt/mania-provisiond/.env (PROVISIOND_SECRET).
+      PROVISIOND_SECRET: "${PROVISIOND_SECRET}"
     volumes:
       - db_data:/data
       - uploads:/app/public/uploads
+      # ▼ AJOUT : monter le DOSSIER du socket (pas le fichier) — l'ordre de
+      #   démarrage n'importe plus, et le socket créé par le démon y apparaît.
+      - /run/mania-provisiond:/run/mania-provisiond
 
 networks:
   web:
