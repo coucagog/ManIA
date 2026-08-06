@@ -51,14 +51,18 @@ next-env.d.ts
 # --- Ajouts : ne jamais committer secrets, base, ni fichiers d'infra locaux ---
 .env
 .env.*
+# ...mais les gabarits d'env sont du documentaire, a tout niveau (ex. services/pii/)
+!.env.example
 prod.db
 prod.db.bak-*
 public/uploads/
-# fichiers d'infra deposes dans /opt/mania mais hors depot app
-main.py
-mania-provisiond.service
-desprovisionner-tenant.sh
-patch-nouveau-tenant.sh*
-deposer-integration.sh
-transcription.zip
-STACK-3.md
+# Fichiers d'infra deposes A LA RACINE de /opt/mania mais hors depot app.
+# Motifs ANCRES (slash initial) : sans lui, git ignorerait un fichier du meme nom
+# a n'importe quelle profondeur -- ex. services/pii/main.py, avale en silence.
+/main.py
+/mania-provisiond.service
+/desprovisionner-tenant.sh
+/patch-nouveau-tenant.sh*
+/deposer-integration.sh
+/transcription.zip
+/STACK-3.md
