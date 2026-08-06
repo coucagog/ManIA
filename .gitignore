@@ -46,6 +46,11 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# python (services partages : services/pii/ ...) — py_compile lance en sudo sur
+# le VPS depose un __pycache__ root dans le checkout, qui salirait git status.
+__pycache__/
+*.py[cod]
+
 /src/generated/prisma
 
 # --- Ajouts : ne jamais committer secrets, base, ni fichiers d'infra locaux ---
