@@ -75,6 +75,30 @@ UPSTREAM = os.environ.get("UPSTREAM_BASE_URL", "https://openrouter.ai/api/v1").r
 FAIL_CLOSED = os.environ.get("PII_FAIL_CLOSED", "1") == "1"
 PROBE = os.environ.get("PII_PROBE_MODE", "0") == "1"
 
+# --------------------------------------------------------------------------- #
+#  Prompt systeme : PSEUDONYMISE OU NON ?
+#
+#  Question laissee ouverte par la revue (ANALYSE-PII §4), TRANCHEE par la
+#  mesure du 2026-08-06 : la sonde a journalise `entites=162` sur un message
+#  utilisateur qui n'en portait que 3. Les 159 autres venaient du prompt
+#  systeme (le SOUL/AGENTS.md du locataire). Autrement dit, les INSTRUCTIONS de
+#  l'agent partaient au modele reduites en [NOM_1]/[ADRESSE_7]/[DATE_12] — un
+#  agent qui ne sait plus qui il est ni pour qui il travaille.
+#
+#  Defaut retenu : NE PAS pseudonymiser `role: system`. Justification — ce
+#  prompt est redige par MANIA et le locataire au provisionnement ; il porte
+#  l'identite du CABINET (praticien, raison sociale, coordonnees), pas les
+#  donnees de ses clients. C'est precisement ce que le locataire choisit
+#  d'exposer a SON fournisseur, avec SA cle (§4quater). Le secret professionnel
+#  qu'on protege vit dans la CONVERSATION, pas dans les instructions.
+#
+#  /!\ Ce n'est pas un defaut anodin : un locataire qui collerait des donnees
+#  patient dans son SOUL les verrait partir en clair. A rappeler dans la doc
+#  d'onboarding. Mettre PII_PSEUDONYMIZE_SYSTEM=1 pour revenir au comportement
+#  v1 (agent degrade, mais rien d'exclu).
+# --------------------------------------------------------------------------- #
+PSEUDO_SYSTEM = os.environ.get("PII_PSEUDONYMIZE_SYSTEM", "0") == "1"
+
 if not SECRET:
     # Meme garde-fou volontaire que transcription/documents : refuser de
     # demarrer sans auth plutot que d'accepter n'importe quel token en silence.
@@ -225,9 +249,18 @@ async def proxy(
     eng = Pseudonymizer(_DETECTOR)
     messages = body.get("messages", [])
 
+    # Perimetre de traitement : par defaut le prompt systeme en est EXCLU
+    # (cf. PSEUDO_SYSTEM en tete de module — l'exclure evite de reduire les
+    # instructions de l'agent en jetons, et allege du meme coup la detection,
+    # le prompt systeme etant l'essentiel du volume de texte).
+    traites = [
+        m for m in messages
+        if PSEUDO_SYSTEM or m.get("role") != "system"
+    ]
+
     # Evaluation de risque sur le texte concatene (garde-fou fail-closed).
     joined = "\n".join(
-        m.get("content", "") for m in messages if isinstance(m.get("content"), str)
+        m.get("content", "") for m in traites if isinstance(m.get("content"), str)
     )
     ents = await _in_pool(lambda t: resolve_overlaps(_DETECTOR.detect(t)), joined)
     risk = assess_risk(joined, ents)
@@ -242,14 +275,15 @@ async def proxy(
         )
 
     # Pseudonymisation de chaque message avec UNE table pour toute la requete.
-    for m in messages:
+    for m in traites:
         c = m.get("content")
         if isinstance(c, str):
             m["content"] = await _in_pool(eng.pseudonymize, c)
 
     if PROBE:
-        log.info("PROBE ok tenant=%s msgs=%d entites=%d stream=%s",
-                 slug, len(messages), risk.entity_count, stream)
+        log.info("PROBE ok tenant=%s msgs=%d/%d entites=%d stream=%s systeme=%s",
+                 slug, len(traites), len(messages), risk.entity_count, stream,
+                 "pseudonymise" if PSEUDO_SYSTEM else "exclu")
 
     upstream_json = await _forward(path, body, authorization)
 

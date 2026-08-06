@@ -184,6 +184,15 @@ agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
 | `UPSTREAM_BASE_URL` | `https://openrouter.ai/api/v1` | amont OpenAI-compatible |
 | `PII_FAIL_CLOSED` | `1` | bloque un contenu sensible mal détecté (422) |
 | `PII_PROBE_MODE` | `0` | journalise l'arrivée d'un appel (forme, jamais le contenu) |
+| `PII_PSEUDONYMIZE_SYSTEM` | `0` | `1` = pseudonymise aussi le prompt système (dégrade l'agent) |
+
+🔵 **Le prompt système n'est PAS pseudonymisé** (décidé sur mesure, 2026-08-06). La sonde
+a journalisé `entites=162` là où le message utilisateur n'en portait que 3 : les 159 autres
+venaient du `SOUL`/`AGENTS.md` du locataire, dont les instructions partaient donc au modèle
+réduites en `[NOM_1]`/`[ADRESSE_7]`. Le prompt système porte l'identité du **cabinet**, pas
+les données de ses clients — c'est ce que le locataire choisit d'exposer à **son** fournisseur
+avec **sa** clé. ⚠️ Corollaire à dire à l'onboarding : **ne pas coller de données patient dans
+le SOUL**, elles partiraient en clair.
 
 `SHARED_SERVICES_SECRET` et `PII_PROBE_MODE` viennent de `/opt/hermes/pii/.env` (hors dépôt) ;
 `UPSTREAM_BASE_URL` et `PII_FAIL_CLOSED` sont fixés dans le compose. Un même nom défini dans

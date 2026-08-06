@@ -12,7 +12,21 @@ terrain (noms sénégalais, wolof translittéré) — travail itératif, cf. §2
 
 from __future__ import annotations
 
+import logging
+
 from pii_engine import Entity
+
+# spaCy `fr_core_news_sm` produit un label MISC que Presidio ne sait pas mapper.
+# Il journalise alors un WARNING **par entite rencontree** : concretement des
+# CENTAINES de lignes identiques par requete, qui noient les lignes utiles
+# (PROBE, statuts HTTP) et remplissent le disque du VPS. Constate en prod le
+# 2026-08-06 pendant la sonde.
+# Couper ce logger est sans risque ici : MISC n'est de toute facon pas dans
+# _PRESIDIO_TO_MANIA, donc `detect()` l'ignore deja a la sortie. L'alternative
+# documentee (NerModelConfiguration.labels_to_ignore) n'est pas retenue : elle
+# depend de la version de Presidio installee, et on ne peut pas la verifier
+# hors du VPS.
+logging.getLogger("presidio-analyzer").setLevel(logging.ERROR)
 
 # Mappe les types Presidio -> nos types internes. Seuls les types utiles au
 # NER libre sont retenus ; le reste est déjà couvert (et mieux) par le regex.
