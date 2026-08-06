@@ -92,8 +92,14 @@ démarrer**. Un crash-loop = secret vide dans `/opt/hermes/pii/.env`.
 Objectif : vérifier **empiriquement** qu'Hermes honore un override de base URL
 **sans toucher à l'image**. On se sert d'un tenant jetable.
 
-1. Sur le proxy, activer le mode sonde puis redémarrer :
-   `PII_PROBE_MODE=1` dans le compose → `sudo docker compose up -d`.
+1. Sur le proxy, activer le mode sonde puis redémarrer. Le drapeau vit dans
+   `/opt/hermes/pii/.env` — **hors du dépôt**, pour ne pas salir le checkout :
+   ```bash
+   sudo sed -i 's/^PII_PROBE_MODE=.*/PII_PROBE_MODE=1/' /opt/hermes/pii/.env
+   grep PII_PROBE_MODE /opt/hermes/pii/.env       # si la ligne manque, l'ajouter
+   cd /opt/mania/services/pii && sudo docker compose up -d
+   curl -s https://pii.mania.sn/health             # doit montrer "probe":true
+   ```
 2. Créer un tenant jetable `sonde` (`nouveau-tenant.sh …`). Son `.env` contient déjà
    un `SHARED_SERVICES_TOKEN` (§38) — c'est le `<token>` du chemin, au format
    `sonde.<hmac>` (le coller **en entier**, le point compris).
@@ -153,6 +159,10 @@ agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
 | `UPSTREAM_BASE_URL` | `https://openrouter.ai/api/v1` | amont OpenAI-compatible |
 | `PII_FAIL_CLOSED` | `1` | bloque un contenu sensible mal détecté (422) |
 | `PII_PROBE_MODE` | `0` | journalise l'arrivée d'un appel (forme, jamais le contenu) |
+
+`SHARED_SERVICES_SECRET` et `PII_PROBE_MODE` viennent de `/opt/hermes/pii/.env` (hors dépôt) ;
+`UPSTREAM_BASE_URL` et `PII_FAIL_CLOSED` sont fixés dans le compose. Un même nom défini dans
+`environment:` **écraserait** celui du fichier — c'est pourquoi `PII_PROBE_MODE` n'y figure pas.
 
 ## Garanties
 - **Éphémère** : aucun contenu de message loggué ; table de correspondance en mémoire,

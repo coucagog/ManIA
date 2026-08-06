@@ -16,7 +16,12 @@ services:
     environment:
       - UPSTREAM_BASE_URL=https://openrouter.ai/api/v1
       - PII_FAIL_CLOSED=1
-      - PII_PROBE_MODE=0      # passer a 1 le temps de la sonde base_url
+      # PII_PROBE_MODE est volontairement ABSENT d'ici : il vient de
+      # /opt/hermes/pii/.env, HORS du checkout git. Le basculer pour la sonde
+      # ne salit donc pas le working tree — on ne reintroduit pas la "danse du
+      # stash" (dette STACK-2 n°1, close au §51) pour un drapeau de debug.
+      #   sudo sed -i 's/^PII_PROBE_MODE=.*/PII_PROBE_MODE=1/' /opt/hermes/pii/.env
+      #   sudo docker compose up -d
 
     mem_limit: 1536m          # §16 estimait ~1 Go (spaCy small) ; a re-mesurer (§37).
     cpus: 2                   # VPS SANS SWAP : la limite protege mania-app et les agents.
