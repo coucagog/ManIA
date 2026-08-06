@@ -1,0 +1,206 @@
+"""
+Tests hors-ligne du cœur PII. Aucune dépendance réseau ni Presidio : un faux
+détecteur NER fournit les noms, le reste est déterministe. Reproduit le patron
+STACK-3 « prouvé hors-ligne avant intégration prod ».
+
+Lancer :  python3 test_pii_engine.py
+"""
+
+from __future__ import annotations
+
+import json
+
+from pii_engine import (
+    CompositeDetector,
+    Entity,
+    Pseudonymizer,
+    RegexDetector,
+    assess_risk,
+    luhn_ok,
+    resolve_overlaps,
+)
+
+
+class FakeNerDetector:
+    """Simule Presidio : marque des noms fournis d'avance (insensible à la casse
+    n'est PAS géré ici volontairement — on teste la casse exacte de v1)."""
+
+    def __init__(self, names: list[str]) -> None:
+        self._names = names
+
+    def detect(self, text: str) -> list[Entity]:
+        out: list[Entity] = []
+        for name in self._names:
+            start = 0
+            while True:
+                i = text.find(name, start)
+                if i == -1:
+                    break
+                out.append(Entity("NOM", i, i + len(name), name))
+                start = i + len(name)
+        return out
+
+
+def _engine(names: list[str] | None = None) -> Pseudonymizer:
+    det = CompositeDetector([RegexDetector(), FakeNerDetector(names or [])])
+    return Pseudonymizer(det)
+
+
+_PASS = 0
+_FAIL = 0
+
+
+def check(label: str, cond: bool) -> None:
+    global _PASS, _FAIL
+    if cond:
+        _PASS += 1
+        print(f"  ok   {label}")
+    else:
+        _FAIL += 1
+        print(f"  FAIL {label}")
+
+
+# --------------------------------------------------------------------------- #
+
+def test_reversible_roundtrip():
+    print("\n[1] Round-trip réversible (nom, date, dossier, tel, email)")
+    text = (
+        "Mme Fatou Ndiaye, née le 12/03/1978, dossier 44821, "
+        "joignable au +221 77 714 46 38 ou zeyna@example.sn."
+    )
+    eng = _engine(["Fatou Ndiaye"])
+    masked = eng.pseudonymize(text)
+    print("    masqué  :", masked)
+    check("le nom réel a disparu du texte masqué", "Fatou Ndiaye" not in masked)
+    check("la date réelle a disparu", "12/03/1978" not in masked)
+    check("le téléphone réel a disparu", "77 714 46 38" not in masked)
+    check("l'e-mail réel a disparu", "zeyna@example.sn" not in masked)
+    check("un jeton nom est présent", "[NOM_1]" in masked)
+    restored = eng.restore(masked)
+    check("restauration = texte d'origine", restored == text)
+
+
+def test_redaction_is_not_restorable():
+    print("\n[2] Suppression pure : CB et CNI jamais transmises ni restaurables")
+    # 4111 1111 1111 1111 est un numéro de test Luhn-valide.
+    text = "Paiement par carte 4111 1111 1111 1111. CNI n° 1234567890123."
+    eng = _engine()
+    masked = eng.pseudonymize(text)
+    print("    masqué  :", masked)
+    check("le numéro de CB a disparu du texte masqué",
+          "4111 1111 1111 1111" not in masked)
+    check("le numéro de CNI a disparu du texte masqué",
+          "1234567890123" not in masked)
+    check("marqueur de suppression présent", "[SUPPRIMÉ]" in masked)
+    check("CB absente de la table de correspondance",
+          all("4111" not in v for v in eng.mapping.values()))
+    check("CNI absente de la table de correspondance",
+          all("1234567890123" not in v for v in eng.mapping.values()))
+    restored = eng.restore(masked)
+    check("restore NE ramène PAS la CB (irréversible)",
+          "4111 1111 1111 1111" not in restored)
+    check("restore NE ramène PAS la CNI (irréversible)",
+          "1234567890123" not in restored)
+
+
+def test_consistency():
+    print("\n[3] Cohérence intra-requête : même valeur -> même jeton")
+    text = "Dupont a appelé. Rappeler Dupont demain. Nouveau contact : Sarr."
+    eng = _engine(["Dupont", "Sarr"])
+    masked = eng.pseudonymize(text)
+    print("    masqué  :", masked)
+    check("Dupont -> un seul jeton réutilisé", masked.count("[NOM_1]") == 2)
+    check("Sarr -> jeton distinct", "[NOM_2]" in masked)
+
+
+def test_overlap_cb_vs_phone():
+    print("\n[4] Chevauchement : une CB Luhn-valide n'est pas prise pour un tel")
+    text = "Réf paiement 4111 1111 1111 1111 reçu."
+    eng = _engine()
+    masked = eng.pseudonymize(text)
+    print("    masqué  :", masked)
+    check("classée CB (supprimée), pas TEL (réversible)",
+          "[SUPPRIMÉ]" in masked and "[TEL_1]" not in masked)
+
+
+def test_phone_formats():
+    print("\n[5] Formats de téléphone sénégalais")
+    eng = _engine()
+    for raw in ["+221 77 714 46 38", "77 714 46 38", "77-714-46-38",
+                "778 714 638".replace(" ", ""), "00221 33 889 00 00"]:
+        det = RegexDetector().detect(f"appel {raw} ok")
+        got = any(e.type == "TEL" for e in det)
+        check(f"détecté : {raw!r}", got)
+
+
+def test_openai_body_rewrite():
+    print("\n[6] Réécriture d'un corps /v1/chat/completions (non-streaming)")
+    body = {
+        "model": "anthropic/claude-opus-4.8",
+        "messages": [
+            {"role": "system", "content": "Tu es un assistant médical."},
+            {"role": "user", "content":
+                "Rédige un courrier pour Fatou Ndiaye (dossier 44821)."},
+        ],
+    }
+    eng = _engine(["Fatou Ndiaye"])
+    # Une seule table pour toute la requête -> jetons cohérents entre messages.
+    for msg in body["messages"]:
+        msg["content"] = eng.pseudonymize(msg["content"])
+    sent = json.dumps(body, ensure_ascii=False)
+    print("    envoyé  :", sent)
+    check("aucun nom réel ne part vers l'amont", "Fatou Ndiaye" not in sent)
+    check("aucun n° de dossier réel ne part", "44821" not in sent)
+
+    # L'amont (simulé) renvoie une réponse qui réutilise les jetons.
+    upstream_reply = {
+        "choices": [{"message": {"role": "assistant", "content":
+            "Courrier pour [NOM_1] concernant le dossier [DOSSIER_1]."}}]
+    }
+    reply = upstream_reply["choices"][0]["message"]["content"]
+    restored = eng.restore(reply)
+    print("    rendu   :", restored)
+    check("le nom réel est ré-inséré côté agent",
+          "Fatou Ndiaye" in restored)
+    check("le n° de dossier réel est ré-inséré", "44821" in restored)
+
+
+def test_fail_closed_signal():
+    print("\n[7] Garde-fou : texte clinique + détection nulle -> signal suspect")
+    text = ("Le patient présente une baisse d'acuité visuelle depuis trois "
+            "semaines, avec un fond d'oeil normal et une tension oculaire "
+            "dans les limites ; traitement en cours à réévaluer prochainement.")
+    eng = _engine()  # pas de nom fourni -> le NER "rate" tout
+    ents = resolve_overlaps(eng.detector.detect(text))
+    risk = assess_risk(text, ents)
+    check("texte reconnu comme sensible", risk.looks_sensitive)
+    check("faux négatif suspecté (fail-closed peut bloquer)",
+          risk.suspicious_low_detection)
+
+    # Contrôle : un texte anodin ne déclenche pas le signal.
+    benign = "Peux-tu me résumer les points clés de cette réunion, merci."
+    r2 = assess_risk(benign, resolve_overlaps(eng.detector.detect(benign)))
+    check("texte anodin -> pas de signal", not r2.suspicious_low_detection)
+
+
+def test_luhn():
+    print("\n[8] Luhn (contrôle unitaire)")
+    check("4111 1111 1111 1111 valide", luhn_ok("4111111111111111"))
+    check("1234 5678 9012 3456 invalide", not luhn_ok("1234567890123456"))
+
+
+def main() -> int:
+    test_reversible_roundtrip()
+    test_redaction_is_not_restorable()
+    test_consistency()
+    test_overlap_cb_vs_phone()
+    test_phone_formats()
+    test_openai_body_rewrite()
+    test_fail_closed_signal()
+    test_luhn()
+    print(f"\n===== {_PASS} ok, {_FAIL} FAIL =====")
+    return 1 if _FAIL else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,163 @@
+# mania-pii — proxy PII (service partagé)
+
+Proxy OpenAI-compatible qui pseudonymise les identifiants **avant** l'appel LLM et
+restaure les valeurs réelles **après**. Même patron que `transcription`/`documents`
+(Traefik, token HMAC par tenant, éphémère). Phase 1 du plan §5/§24 ; la phase 2 est
+le modèle local zéro-egress.
+
+---
+
+## 🔴 ÉTAT — NE CÂBLER AUCUN TENANT RÉEL
+
+Trois voies de fuite sont **connues et volontairement encore ouvertes** (STACK-4 §50).
+La séquence arrêtée est **3 bloquants → sonde → durcissement** : inutile de durcir une
+architecture dont on n'a pas encore prouvé qu'elle s'insère.
+
+| # | Fuite ouverte | Conséquence |
+|---|---|---|
+| 1 | Pas de liste blanche sur le passthrough | `/v1/embeddings`, `/v1/completions` partent **en clair** |
+| 2 | `content` en blocs (`[{"type":"text",…}]`) non traité | Traverse **non masqué** |
+| 3 | `tool_calls` ni masqués ni restaurés | Fuite à l'aller ; `[NOM_1]` en argument d'outil au retour |
+
+⚠️ Le garde-fou `PII_FAIL_CLOSED` est aussi **plus faible que son nom** : une seule
+entité détectée le désarme, et ses marqueurs sont cliniques français (couverture nulle
+pour avocats/notaires/banques).
+
+⇒ **Tenant `sonde` jetable uniquement.** Ni `skd` ni `ridwan`, et aucune donnée réelle.
+
+---
+
+## Ce qui est prouvé (hors-ligne) vs à valider en prod
+- ✅ **Cœur déterministe** (`pii_engine.py`) : 30 tests (`python3 test_pii_engine.py`).
+  Round-trip réversible, **suppression pure non restaurable** (CB/CNI), cohérence
+  intra-requête, chevauchement CB↔tél, formats tél sénégalais, réécriture d'un corps
+  `/v1/chat/completions`, garde-fou fail-closed.
+  ⚠️ **Fichier inchangé** depuis le prototype (hash identique) : les 30 tests gardent
+  exactement le sens qu'ils avaient.
+- ⚠️ **HTTP + Presidio** (`main.py`, `presidio_adapter.py`) : **jamais exécutés**.
+  Premier run sur le VPS. Reconnaisseurs sénégalais = TODO §24 (travail de terrain).
+
+### Corrigé par rapport au prototype (STACK-4 §50)
+1. **Auth** — le token du projet est `<slug>.<hmac_hex>` ; la v1 comparait le token
+   *entier* au seul hmac ⇒ **401 systématique**, et la sonde aurait conclu à tort
+   qu'Hermes n'honore pas `OPENAI_BASE_URL`. Découpage aligné sur
+   `transcription/main.py`, + croisement du slug du token avec celui du chemin.
+2. **Presidio instancié UNE fois** au démarrage (`lifespan`), plus par requête —
+   la v1 rechargeait spaCy à chaque appel : latence de plusieurs secondes et **risque
+   d'OOM** contre `mem_limit=1536m` sur un VPS **sans swap**. Corollaire : détections
+   sérialisées dans un pool à **1 worker** (spaCy n'est pas concurrent-safe), doctrine
+   « file bornée » de transcription.
+3. **Traefik** — `certresolver=letsencrypt` (la v1 disait `le`, résolveur inexistant
+   ⇒ aucun certificat) et `tls=true` ajouté.
+4. Le corps d'erreur de l'amont est **remonté** au lieu d'être avalé (sans lui,
+   diagnostiquer la sonde revient à deviner).
+
+---
+
+## Déploiement
+
+Le code est versionné dans le dépôt (`/opt/mania/services/pii/`), **le secret vit
+hors du checkout** (`/opt/hermes/pii/.env`) : `.env` étant gitignoré, un
+`git clean -fdx` dans `/opt/mania` l'aurait supprimé.
+
+```bash
+# 1) secret PARTAGE, hors checkout (reutiliser celui des autres services)
+sudo install -d -m 700 /opt/hermes/pii
+sudo cp /opt/mania/services/pii/.env.example /opt/hermes/pii/.env
+sudo chmod 600 /opt/hermes/pii/.env
+sudo cat /opt/hermes/gabarit/.shared-services-secret   # coller dans SHARED_SERVICES_SECRET
+sudo nano /opt/hermes/pii/.env
+
+# 2) barriere de verification AVANT build — stdlib pure, ni docker ni reseau
+cd /opt/mania/services/pii
+python3 -m py_compile pii_engine.py presidio_adapter.py main.py   # syntaxe des 3 modules
+python3 test_pii_engine.py                                        # 30 tests du coeur
+#    ROUGE = ON NE BUILD PAS.
+
+# 3) build (telecharge le modele spaCy AU BUILD -> heure creuse, quelques minutes)
+sudo docker compose up -d --build
+
+# 4) sante (DNS deja couvert par le wildcard *.mania.sn)
+curl -s https://pii.mania.sn/health   # {"status":"ok","ner":"presidio"|"regex-only",...}
+```
+
+Garde-fou volontaire : sans `SHARED_SERVICES_SECRET`, le conteneur **refuse de
+démarrer**. Un crash-loop = secret vide dans `/opt/hermes/pii/.env`.
+
+**Rollback** : `sudo docker compose down` (aucune base, aucun état persistant).
+
+---
+
+## 🔬 SONDE `OPENAI_BASE_URL` — la question qui débloque tout
+Objectif : vérifier **empiriquement** qu'Hermes honore un override de base URL
+**sans toucher à l'image**. On se sert d'un tenant jetable.
+
+1. Sur le proxy, activer le mode sonde puis redémarrer :
+   `PII_PROBE_MODE=1` dans le compose → `sudo docker compose up -d`.
+2. Créer un tenant jetable `sonde` (`nouveau-tenant.sh …`). Son `.env` contient déjà
+   un `SHARED_SERVICES_TOKEN` (§38) — c'est le `<token>` du chemin, au format
+   `sonde.<hmac>` (le coller **en entier**, le point compris).
+3. Dans son `config.yaml` : `model.provider: openai`. Dans l'`environment:` de son
+   agent (compose) :
+   ```
+   - OPENAI_BASE_URL=https://pii.mania.sn/g/sonde/<SHARED_SERVICES_TOKEN>/v1
+   ```
+   (le client saisit sa clé OpenRouter via la WebUI comme d'habitude — elle passe
+   intacte dans `Authorization`, §4quater). `docker compose up -d sonde-agent`.
+   ⚠️ **`openrouter` → `openai` n'est pas « juste un label »** : en-têtes attendus par
+   OpenRouter (`HTTP-Referer`/`X-Title`), nommage des modèles, formatage des appels
+   d'outils peuvent changer. À observer, pas à supposer.
+4. Envoyer **un** message à l'agent, puis :
+   ```
+   sudo docker logs mania-pii | grep -E 'PROBE|401|token'
+   ```
+   - **`PROBE ok tenant=sonde …`** → Hermes honore `OPENAI_BASE_URL`.
+     **Verrou levé.** Repasser `PII_PROBE_MODE=0`, puis **durcir avant tout tenant réel**.
+   - **`401`** → le token est mal recopié (il doit contenir le point).
+   - **Rien du tout** → l'`openai` provider d'Hermes n'a pas suivi la base. Tester la
+     variante (`OPENROUTER_BASE_URL`, ou base configurable en `config.yaml`). Si aucun
+     levier → décision d'archi (phase 2 modèle local), à documenter dans STACK.
+5. Dé-provisionner `sonde` (`desprovisionner-tenant.sh sonde`).
+   ⚠️ Let's Encrypt limite à **5 certificats identiques par semaine** : ne pas
+   créer/détruire `sonde` en boucle, son certificat serait refusé.
+
+---
+
+## Câblage d'un tenant sensible (une fois la sonde verte ET le durcissement fait)
+Opt-in **par verticale**, jamais global : seuls les tenants sur un pack sensible passent
+par le proxy. Deux lignes, aucune touche à l'image Hermes :
+- `config.yaml` : `model.provider: openai`
+- compose (agent) : `OPENAI_BASE_URL=https://pii.mania.sn/g/<slug>/<token>/v1`
+
+Un tenant hors pack sensible garde son appel LLM direct (sa clé, sa responsabilité).
+
+**Politique fournisseur retenue (option A, STACK-4 §50)** : les packs sensibles passent
+par une **passerelle OpenAI-compatible** (OpenRouter, clé du client). OpenRouter fronte
+Anthropic/Gemini/Mistral derrière une seule API OpenAI-shaped, donc le modèle sous-jacent
+reste libre. Un client exigeant un **compte direct** non-OpenAI (Anthropic natif, Gemini
+natif) n'est pas éligible tant qu'un adaptateur de fil n'est pas écrit — le cœur étant
+agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
+
+---
+
+## Réglages (env)
+| Var | Défaut | Rôle |
+|---|---|---|
+| `SHARED_SERVICES_SECRET` | — (obligatoire) | secret maître partagé (§36) |
+| `UPSTREAM_BASE_URL` | `https://openrouter.ai/api/v1` | amont OpenAI-compatible |
+| `PII_FAIL_CLOSED` | `1` | bloque un contenu sensible mal détecté (422) |
+| `PII_PROBE_MODE` | `0` | journalise l'arrivée d'un appel (forme, jamais le contenu) |
+
+## Garanties
+- **Éphémère** : aucun contenu de message loggué ; table de correspondance en mémoire,
+  portée requête, jamais persistée (résout §24 pt 3 : pas de base de correspondance à
+  protéger — **écart assumé** avec « par locataire » de §24 pt 2, qui devient sans objet).
+- **Suppression pure** CB + pièce d'identité : jamais transmises, jamais restaurables.
+- **Clé client jamais détenue** : `Authorization` relayé intact (§4quater).
+- **Streaming** refusé en v1 (Hermes tourne `streaming.enabled: false`) ; à ajouter avec
+  un tampon anti-coupure-de-jeton si un tenant l'active.
+
+⚠️ **Le token transite dans l'URL** (`Authorization` est occupé par la clé du client) : il
+apparaît donc dans les logs d'accès Traefik. Il n'est pas rotatable (dérivé du slug) et
+ouvre aussi transcription/documents. À traiter avant mise en service réelle : désactiver
+l'access log sur ce routeur.
