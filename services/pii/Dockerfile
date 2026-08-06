@@ -12,4 +12,9 @@ COPY pii_engine.py presidio_adapter.py main.py ./
 COPY test_pii_engine.py ./
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-access-log : uvicorn journalise le CHEMIN COMPLET, or le token voyage
+# dedans (Authorization porte la cle du client). Sans ce drapeau, `docker logs`
+# devient un magasin de credentials — le meme token ouvrant aussi transcription
+# et documents. Une journalisation equivalente, token caviarde, est faite par le
+# middleware de main.py.
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

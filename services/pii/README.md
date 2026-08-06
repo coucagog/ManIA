@@ -109,14 +109,20 @@ Objectif : vérifier **empiriquement** qu'Hermes honore un override de base URL
    d'outils peuvent changer. À observer, pas à supposer.
 4. Envoyer **un** message à l'agent, puis :
    ```
-   sudo docker logs mania-pii | grep -E 'PROBE|401|token'
+   sudo docker logs mania-pii --since 10m | grep -E 'PROBE|/g/'
    ```
+   Le middleware journalise **toute** requête arrivée (token caviardé), même celle qui
+   échoue — c'est ce qui rend le diagnostic non ambigu :
    - **`PROBE ok tenant=sonde …`** → Hermes honore `OPENAI_BASE_URL`.
      **Verrou levé.** Repasser `PII_PROBE_MODE=0`, puis **durcir avant tout tenant réel**.
-   - **`401`** → le token est mal recopié (il doit contenir le point).
-   - **Rien du tout** → l'`openai` provider d'Hermes n'a pas suivi la base. Tester la
-     variante (`OPENROUTER_BASE_URL`, ou base configurable en `config.yaml`). Si aucun
-     levier → décision d'archi (phase 2 modèle local), à documenter dans STACK.
+   - **`POST /g/sonde/<token>/v1/chat/completions -> 401`** → la requête arrive, donc Hermes
+     honore bien la base URL ; c'est le **token** qui est mal recopié (il doit contenir le point).
+   - **`… -> 404`** ou un autre chemin → Hermes a suivi la base mais n'appelle pas
+     `chat/completions` : lire le chemin journalisé, il donne la forme réelle.
+   - **Rien du tout** → *là seulement* on peut conclure que l'`openai` provider d'Hermes n'a pas
+     suivi la base. Tester la variante (`OPENROUTER_BASE_URL`, ou base configurable en
+     `config.yaml`). Si aucun levier → décision d'archi (phase 2 modèle local), à documenter
+     dans STACK.
 5. Dé-provisionner `sonde` (`desprovisionner-tenant.sh sonde`).
    ⚠️ Let's Encrypt limite à **5 certificats identiques par semaine** : ne pas
    créer/détruire `sonde` en boucle, son certificat serait refusé.
@@ -157,7 +163,11 @@ agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
 - **Streaming** refusé en v1 (Hermes tourne `streaming.enabled: false`) ; à ajouter avec
   un tampon anti-coupure-de-jeton si un tenant l'active.
 
-⚠️ **Le token transite dans l'URL** (`Authorization` est occupé par la clé du client) : il
-apparaît donc dans les logs d'accès Traefik. Il n'est pas rotatable (dérivé du slug) et
-ouvre aussi transcription/documents. À traiter avant mise en service réelle : désactiver
-l'access log sur ce routeur.
+⚠️ **Le token transite dans l'URL** (`Authorization` est occupé par la clé du client). Il n'est
+pas rotatable (dérivé du slug) et ouvre **aussi transcription et documents** — donc partout où
+un chemin est journalisé, c'est un credential qui l'est.
+- ✅ **Côté conteneur : traité.** Le log d'accès d'uvicorn est coupé (`--no-access-log`) et
+  remplacé par un middleware qui caviarde le segment (`/g/<slug>/<token>/…` → `/g/<slug>/<token>/…`
+  avec le token remplacé par le littéral `<token>`).
+- 🔴 **Côté Traefik : à traiter avant toute mise en service réelle.** Si l'access log Traefik
+  est actif, il enregistre l'URL complète. À désactiver sur ce routeur, ou à filtrer.

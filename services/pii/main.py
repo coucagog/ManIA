@@ -120,6 +120,27 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="mania-pii", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def _journal_sans_token(request: Request, call_next):
+    """Journalise la FORME de chaque requete, jamais le token.
+
+    Le log d'acces d'uvicorn est coupe (--no-access-log, cf. Dockerfile) parce
+    qu'il imprime le chemin complet — or le token voyage dedans, et c'est le
+    meme qui ouvre transcription et documents. On le remplace ici par une ligne
+    equivalente avec le segment caviarde.
+
+    Indispensable a la sonde : sans elle, une requete qui arriverait mais
+    n'atteindrait pas PROBE (mauvais chemin, 401) ne laisserait AUCUNE trace, et
+    l'absence de log serait lue a tort comme « Hermes n'a pas suivi la base URL ».
+    """
+    response = await call_next(request)
+    parts = request.url.path.split("/")
+    if len(parts) > 3 and parts[1] == "g":
+        parts[3] = "<token>"
+    log.info("%s %s -> %s", request.method, "/".join(parts), response.status_code)
+    return response
+
+
 async def _in_pool(fn, *args):
     """Execute un traitement CPU-bound dans le pool a 1 worker."""
     loop = asyncio.get_running_loop()
