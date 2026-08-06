@@ -23,6 +23,11 @@ architecture dont on n'a pas encore prouvé qu'elle s'insère.
 entité détectée le désarme, et ses marqueurs sont cliniques français (couverture nulle
 pour avocats/notaires/banques).
 
+🔴 **Et une quatrième voie, hors proxy** : changer de modèle dans le sélecteur de la WebUI
+**efface la base URL** côté Hermes (#25107). Le proxy est alors purement et simplement
+**contourné**, sans aucun signal. Ce n'est pas un défaut du proxy — c'est pourquoi le
+câblage par `environment:` ne peut pas être le dispositif final (voir § Sonde).
+
 ⇒ **Tenant `sonde` jetable uniquement.** Ni `skd` ni `ridwan`, et aucune donnée réelle.
 
 ---
@@ -70,8 +75,9 @@ sudo nano /opt/hermes/pii/.env
 
 # 2) barriere de verification AVANT build — stdlib pure, ni docker ni reseau
 cd /opt/mania/services/pii
-python3 -m py_compile pii_engine.py presidio_adapter.py main.py   # syntaxe des 3 modules
+sudo python3 -m py_compile pii_engine.py presidio_adapter.py sse.py main.py  # syntaxe
 python3 test_pii_engine.py                                        # 30 tests du coeur
+python3 test_sse.py                                               # tests de la re-emission SSE
 #    ROUGE = ON NE BUILD PAS.
 
 # 3) build (telecharge le modele spaCy AU BUILD -> heure creuse, quelques minutes)
@@ -88,7 +94,26 @@ démarrer**. Un crash-loop = secret vide dans `/opt/hermes/pii/.env`.
 
 ---
 
-## 🔬 SONDE `OPENAI_BASE_URL` — la question qui débloque tout
+## ✅ SONDE `OPENAI_BASE_URL` — VERTE, le verrou est levé
+**Résultat (2026-08-06, tenant jetable `sonde`)** : avec `model.provider: custom` et
+`OPENAI_BASE_URL` pointé sur le proxy, **la complétion atteint bien le proxy**. La preuve
+est arrivée par notre propre message d'erreur — `HTTP 400 {"detail":"streaming non
+supporte en v1 du proxy PII"}` remonté dans la WebUI. **§24 pt 1 est tranché** : Hermes
+route les appels de complétion par la base URL. La phase 2 (modèle local) n'est plus un
+préalable.
+
+🔴 **Deux découvertes qui conditionnent la mise en service** :
+1. **Changer de modèle dans le sélecteur de la WebUI efface la base URL** (note de version
+   Hermes : *clear stale base_url on gateway model switches, #25107*). ⇒ un client qui
+   change de modèle **désactive la pseudonymisation sans le savoir**, et son appel repart
+   en direct chez le fournisseur. Le câblage par `environment:` **ne suffit donc pas** :
+   il faut que la base URL soit portée par le **profil de fournisseur** lui-même, et une
+   barrière réseau (egress) pour que le contournement échoue au lieu de fuir en silence.
+2. **`streaming.enabled: false` dans `config.yaml` ne gouverne pas** le champ `stream`
+   envoyé à l'API — la requête arrive avec `stream: true` malgré lui. ⇒ traité **côté
+   proxy** (voir Garanties), et non par un réglage client rebasculable d'un clic.
+
+### Mode opératoire (pour rejouer la sonde)
 Objectif : vérifier **empiriquement** qu'Hermes honore un override de base URL
 **sans toucher à l'image**. On se sert d'un tenant jetable.
 
@@ -170,8 +195,10 @@ agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
   protéger — **écart assumé** avec « par locataire » de §24 pt 2, qui devient sans objet).
 - **Suppression pure** CB + pièce d'identité : jamais transmises, jamais restaurables.
 - **Clé client jamais détenue** : `Authorization` relayé intact (§4quater).
-- **Streaming** refusé en v1 (Hermes tourne `streaming.enabled: false`) ; à ajouter avec
-  un tampon anti-coupure-de-jeton si un tenant l'active.
+- **Streaming accepté**, mais servi en **un seul événement** SSE : l'amont est appelé en
+  non-streamé, la réponse est restaurée entière, puis ré-émise en flux valide. Pas
+  d'affichage progressif — le prix assumé pour ne pas restaurer sur des jetons coupés
+  en deux entre deux chunks. Voir `sse.py`.
 
 ⚠️ **Le token transite dans l'URL** (`Authorization` est occupé par la clé du client). Il n'est
 pas rotatable (dérivé du slug) et ouvre **aussi transcription et documents** — donc partout où

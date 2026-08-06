@@ -46,7 +46,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from pii_engine import (
     CompositeDetector,
@@ -55,6 +55,7 @@ from pii_engine import (
     assess_risk,
     resolve_overlaps,
 )
+from sse import completion_to_sse
 
 try:
     # Presidio n'est present que sur le VPS ; en son absence, on tourne en
@@ -203,10 +204,23 @@ async def proxy(
 
     body = await request.json()
 
-    if body.get("stream"):
-        # v1 ne restaure pas sur un flux SSE ; Hermes tourne streaming=off, donc
-        # ne devrait jamais arriver. On refuse explicitement plutot que fuir.
-        raise HTTPException(status_code=400, detail="streaming non supporte en v1 du proxy PII")
+    # --- Streaming : accepte, mais servi en UN evenement (STACK-4 §53) -------
+    # La v1 refusait `stream: true` (400) en pariant sur le
+    # `streaming.enabled: false` des tenants. LA SONDE A INVALIDE CE PARI : la
+    # requete arrive avec `stream: true` malgre ce reglage — il ne gouverne pas
+    # le champ envoye a l'API. Et faire tenir la conformite a un reglage que le
+    # client peut rebasculer d'un clic, sans savoir qu'il desactive alors la
+    # pseudonymisation, n'est pas vendable.
+    #
+    # On accepte donc, SANS pseudonymiser au fil de l'eau : un jeton [NOM_1]
+    # peut etre coupe entre deux chunks amont, et `restore` (un str.replace sur
+    # le texte complet) ne matcherait plus rien -> jeton livre tel quel au
+    # client, valeur reelle jamais reinjectee. On appelle donc l'amont en
+    # non-streame (chemin deja prouve), on restaure, et on re-emet en SSE.
+    # Prix assume : pas d'affichage progressif. A remplacer par un vrai flux
+    # avec tampon anti-coupure-de-jeton quand ce sera la gene principale.
+    stream = bool(body.pop("stream", False))
+    body.pop("stream_options", None)  # sans `stream`, l'amont le rejetterait
 
     eng = Pseudonymizer(_DETECTOR)
     messages = body.get("messages", [])
@@ -234,7 +248,8 @@ async def proxy(
             m["content"] = await _in_pool(eng.pseudonymize, c)
 
     if PROBE:
-        log.info("PROBE ok tenant=%s msgs=%d entites=%d", slug, len(messages), risk.entity_count)
+        log.info("PROBE ok tenant=%s msgs=%d entites=%d stream=%s",
+                 slug, len(messages), risk.entity_count, stream)
 
     upstream_json = await _forward(path, body, authorization)
 
@@ -243,6 +258,17 @@ async def proxy(
         msg = choice.get("message", {})
         if isinstance(msg.get("content"), str):
             msg["content"] = eng.restore(msg["content"])
+
+    if stream:
+        # La restauration ci-dessus a deja eu lieu : le flux ne transporte que
+        # des valeurs reelles, jamais des jetons a recoller cote client.
+        return StreamingResponse(
+            completion_to_sse(upstream_json),
+            media_type="text/event-stream",
+            # `no-cache` + `X-Accel-Buffering: no` : Traefik est devant, et un
+            # intermediaire qui tamponnerait retiendrait tout le flux.
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     return JSONResponse(content=upstream_json)
 
