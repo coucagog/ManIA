@@ -26,12 +26,16 @@ cliniques français, donc de couverture **nulle** pour avocats, notaires, banque
 comptables — couvrent maintenant les verticales de §25.
 
 ### 🔴 Ce qui reste bloquant avant un tenant réel
-1. **Le câblage est contournable sans signal.** Changer de modèle dans le sélecteur de la
-   WebUI **efface la base URL** côté Hermes (#25107), et la clé vit dans le **profil de
-   fournisseur**, pas dans la variable. Le proxy est alors purement contourné. Ce n'est pas
-   un défaut du proxy : c'est pourquoi `environment:` ne peut pas être le dispositif final.
+1. **Le câblage — bloquant AUJOURD'HUI, et prouvé** (§54). Même clé, même endpoint : un
+   `curl` **à travers le proxy** répond `200`, mais l'appel **d'Hermes** répond `401`. La
+   clé vit dans le **profil de fournisseur**, pas dans la variable, et le modèle sélectionné
+   appartient à un autre profil que celui portant notre base URL — Hermes route vers nous en
+   attachant un en-tête inexploitable. S'y ajoute #25107 : changer de modèle dans le
+   sélecteur **efface la base URL**, et le proxy est alors purement contourné, sans signal.
    ⇒ profil portant **URL + clé**, et **barrière egress** sur le conteneur agent, pour
    qu'un décrochage **échoue** au lieu de fuir en silence.
+   ℹ️ Ce n'est **pas** un défaut du proxy : c'est pourquoi `environment:` ne peut pas être
+   le dispositif final.
 2. **L'access log Traefik** enregistre l'URL complète, **token compris**.
 3. **Les reconnaisseurs sénégalais** sont toujours un `pass` vide (§24) : avec
    `fr_core_news_sm` seul, la détection des noms wolof/sénégalais reste faible.
@@ -47,7 +51,7 @@ comptables — couvrent maintenant les verticales de §25.
 ---
 
 ## Ce qui est prouvé (hors-ligne) vs à valider en prod
-- ✅ **Cœur déterministe** (`pii_engine.py`) — `python3 test_pii_engine.py` : round-trip
+- ✅ **Cœur déterministe** (`pii_engine.py`) — `python3 test_pii_engine.py`, **65 ok** : round-trip
   réversible, **suppression pure non restaurable** (CB/CNI), cohérence intra-requête,
   chevauchement CB↔tél, formats tél sénégalais, réécriture d'un corps
   `/v1/chat/completions`, garde-fou fail-closed (**seuil relatif** et marqueurs des
@@ -55,7 +59,7 @@ comptables — couvrent maintenant les verticales de §25.
   ℹ️ Le fichier n'est plus au hash du prototype : `restore_deep` (2026-08-06) puis le
   durcissement d'`assess_risk` (2026-08-07) y ont été ajoutés. Les 30 tests d'origine
   restent inchangés.
-- ✅ **Format de fil** (`wire.py`) — `python3 test_wire.py` : liste blanche des chemins,
+- ✅ **Format de fil** (`wire.py`) — `python3 test_wire.py`, **38 ok** : liste blanche des chemins,
   `content` en blocs, `tool_calls`, et **ce qu'on refuse de toucher** (tableau `tools`,
   blocs image, prompt système). Stdlib pure, comme `sse.py` — délibéré : la couche HTTP
   est celle qui a porté **tous** les défauts de ce service.
@@ -161,7 +165,10 @@ Objectif : vérifier **empiriquement** qu'Hermes honore un override de base URL
    d'outils peuvent changer. À observer, pas à supposer.
 4. Envoyer **un** message à l'agent, puis :
    ```
-   sudo docker logs mania-pii --since 10m | grep -E 'PROBE|/g/'
+   # /!\ le `2>&1` n'est pas decoratif : le logger Python ecrit sur STDERR, donc
+   #     sans lui le tube ne recoit que stdout (vide) et le grep ne filtre rien —
+   #     les lignes s'affichent quand meme, ce qui donne l'illusion d'un filtre casse.
+   sudo docker logs mania-pii --since 10m 2>&1 | grep -E 'PROBE|/g/'
    ```
    Le middleware journalise **toute** requête arrivée (token caviardé), même celle qui
    échoue — c'est ce qui rend le diagnostic non ambigu :
