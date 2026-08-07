@@ -6,12 +6,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Modele spaCy small FR mis en cache AU BUILD -> zero egress au runtime (patron §36).
 RUN python -m spacy download fr_core_news_sm
 
-COPY pii_engine.py presidio_adapter.py sse.py main.py ./
+# /!\ Cette liste est NOMINATIVE : tout module ajoute au service doit y etre
+# ajoute ici, sinon le conteneur demarre en ModuleNotFoundError.
+COPY pii_engine.py presidio_adapter.py sse.py wire.py main.py ./
 # Embarques pour pouvoir rejouer les tests hors-ligne DANS le conteneur deploye
 # (barriere de verification STACK-4 §50) :
 #   docker exec mania-pii python3 test_pii_engine.py
 #   docker exec mania-pii python3 test_sse.py
-COPY test_pii_engine.py test_sse.py ./
+#   docker exec mania-pii python3 test_wire.py
+COPY test_pii_engine.py test_sse.py test_wire.py ./
 
 EXPOSE 8000
 # --no-access-log : uvicorn journalise le CHEMIN COMPLET, or le token voyage

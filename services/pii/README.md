@@ -9,39 +9,58 @@ le modèle local zéro-egress.
 
 ## 🔴 ÉTAT — NE CÂBLER AUCUN TENANT RÉEL
 
-Trois voies de fuite sont **connues et volontairement encore ouvertes** (STACK-4 §50).
-La séquence arrêtée est **3 bloquants → sonde → durcissement** : inutile de durcir une
-architecture dont on n'a pas encore prouvé qu'elle s'insère.
+Séquence arrêtée au §50 : **3 bloquants → sonde → durcissement**. Les deux premières
+étapes sont faites, le durcissement du proxy aussi (§54). **Ce qui reste bloquant est
+désormais hors du proxy.**
 
-| # | Fuite ouverte | Conséquence |
+### ✅ Fermé au §54 — les trois voies de fuite du §50
+| # | Fuite | Fermeture |
 |---|---|---|
-| 1 | Pas de liste blanche sur le passthrough | `/v1/embeddings`, `/v1/completions` partent **en clair** |
-| 2 | `content` en blocs (`[{"type":"text",…}]`) non traité | Traverse **non masqué** |
-| 3 | `tool_calls` ni masqués ni restaurés | Fuite à l'aller ; `[NOM_1]` en argument d'outil au retour |
+| 1 | Passthrough sans liste blanche — `/v1/embeddings`, `/v1/completions` partaient **en clair** | **Deny by default** : seul `POST chat/completions` est traité, seul `GET models` traverse. Tout le reste est **refusé en 403**, pas relayé. |
+| 2 | `content` en blocs (`[{"type":"text",…}]`) non masqué, et **pas même compté** par `assess_risk` | Une **seule** énumération des emplacements de texte (`wire.text_slots`), partagée par le calcul de risque et le masquage. |
+| 3 | `tool_calls` ni masqués ni restaurés | `arguments` masqué **à l'aller** (`wire.py`) ; le **retour** était déjà fermé par `restore_deep` (§53). |
 
-⚠️ Le garde-fou `PII_FAIL_CLOSED` est aussi **plus faible que son nom** : une seule
-entité détectée le désarme, et ses marqueurs sont cliniques français (couverture nulle
-pour avocats/notaires/banques).
+Le garde-fou `PII_FAIL_CLOSED` a été durci du même coup : son `n == 0` (qu'**une seule**
+entité désarmait) devient un **seuil relatif à la longueur**, et ses marqueurs — jusque-là
+cliniques français, donc de couverture **nulle** pour avocats, notaires, banques et
+comptables — couvrent maintenant les verticales de §25.
 
-🔴 **Et une quatrième voie, hors proxy** : changer de modèle dans le sélecteur de la WebUI
-**efface la base URL** côté Hermes (#25107). Le proxy est alors purement et simplement
-**contourné**, sans aucun signal. Ce n'est pas un défaut du proxy — c'est pourquoi le
-câblage par `environment:` ne peut pas être le dispositif final (voir § Sonde).
+### 🔴 Ce qui reste bloquant avant un tenant réel
+1. **Le câblage est contournable sans signal.** Changer de modèle dans le sélecteur de la
+   WebUI **efface la base URL** côté Hermes (#25107), et la clé vit dans le **profil de
+   fournisseur**, pas dans la variable. Le proxy est alors purement contourné. Ce n'est pas
+   un défaut du proxy : c'est pourquoi `environment:` ne peut pas être le dispositif final.
+   ⇒ profil portant **URL + clé**, et **barrière egress** sur le conteneur agent, pour
+   qu'un décrochage **échoue** au lieu de fuir en silence.
+2. **L'access log Traefik** enregistre l'URL complète, **token compris**.
+3. **Les reconnaisseurs sénégalais** sont toujours un `pass` vide (§24) : avec
+   `fr_core_news_sm` seul, la détection des noms wolof/sénégalais reste faible.
+
+### ⚠️ Deux limites assumées, à annoncer plutôt qu'à masquer à moitié
+- **La PII portée par une image n'est pas couverte.** Masquer du base64 corromprait sans
+  retour possible (`CB` est en suppression pure, et Luhn passe sur ~10 % des suites de
+  chiffres aléatoires — §50, option « C »).
+- **Le prompt système est hors périmètre** (voir § Réglages).
 
 ⇒ **Tenant `sonde` jetable uniquement.** Ni `skd` ni `ridwan`, et aucune donnée réelle.
 
 ---
 
 ## Ce qui est prouvé (hors-ligne) vs à valider en prod
-- ✅ **Cœur déterministe** (`pii_engine.py`) : 45 tests (`python3 test_pii_engine.py`).
-  Round-trip réversible, **suppression pure non restaurable** (CB/CNI), cohérence
-  intra-requête, chevauchement CB↔tél, formats tél sénégalais, réécriture d'un corps
-  `/v1/chat/completions`, garde-fou fail-closed, **restauration profonde** et **filtre
-  des faux positifs du NER**.
-  ℹ️ Le fichier n'est plus au hash du prototype : `restore_deep` y a été **ajouté** le
-  2026-08-06 (les 30 tests d'origine sont inchangés et toujours verts ; 15 s'y ajoutent).
-- ⚠️ **HTTP + Presidio** (`main.py`, `presidio_adapter.py`) : **jamais exécutés**.
-  Premier run sur le VPS. Reconnaisseurs sénégalais = TODO §24 (travail de terrain).
+- ✅ **Cœur déterministe** (`pii_engine.py`) — `python3 test_pii_engine.py` : round-trip
+  réversible, **suppression pure non restaurable** (CB/CNI), cohérence intra-requête,
+  chevauchement CB↔tél, formats tél sénégalais, réécriture d'un corps
+  `/v1/chat/completions`, garde-fou fail-closed (**seuil relatif** et marqueurs des
+  verticales §25), **restauration profonde**, **filtre des faux positifs du NER**.
+  ℹ️ Le fichier n'est plus au hash du prototype : `restore_deep` (2026-08-06) puis le
+  durcissement d'`assess_risk` (2026-08-07) y ont été ajoutés. Les 30 tests d'origine
+  restent inchangés.
+- ✅ **Format de fil** (`wire.py`) — `python3 test_wire.py` : liste blanche des chemins,
+  `content` en blocs, `tool_calls`, et **ce qu'on refuse de toucher** (tableau `tools`,
+  blocs image, prompt système). Stdlib pure, comme `sse.py` — délibéré : la couche HTTP
+  est celle qui a porté **tous** les défauts de ce service.
+- ⚠️ **HTTP + Presidio** (`main.py`, `presidio_adapter.py`) : jamais couverts hors-ligne
+  (fastapi/spaCy requis). Reconnaisseurs sénégalais = TODO §24 (travail de terrain).
 
 ### Corrigé par rapport au prototype (STACK-4 §50)
 1. **Auth** — le token du projet est `<slug>.<hmac_hex>` ; la v1 comparait le token
@@ -76,9 +95,10 @@ sudo nano /opt/hermes/pii/.env
 
 # 2) barriere de verification AVANT build — stdlib pure, ni docker ni reseau
 cd /opt/mania/services/pii
-sudo python3 -m py_compile pii_engine.py presidio_adapter.py sse.py main.py  # syntaxe
-python3 test_pii_engine.py                                        # 45 tests du coeur
-python3 test_sse.py                                               # tests de la re-emission SSE
+sudo python3 -m py_compile pii_engine.py presidio_adapter.py sse.py wire.py main.py
+python3 test_pii_engine.py       # coeur : reversibilite, suppression pure, garde-fou
+python3 test_sse.py              # re-emission SSE en un evenement
+python3 test_wire.py             # format de fil : liste blanche, blocs, tool_calls
 #    ROUGE = ON NE BUILD PAS.
 
 # 3) build (telecharge le modele spaCy AU BUILD -> heure creuse, quelques minutes)
@@ -184,8 +204,15 @@ agnostique (il opère sur des chaînes), ce sera peu coûteux le jour venu.
 | `SHARED_SERVICES_SECRET` | — (obligatoire) | secret maître partagé (§36) |
 | `UPSTREAM_BASE_URL` | `https://openrouter.ai/api/v1` | amont OpenAI-compatible |
 | `PII_FAIL_CLOSED` | `1` | bloque un contenu sensible mal détecté (422) |
+| `PII_CHARS_PER_ENTITY` | `500` | seuil du garde-fou : une entité attendue par tranche de N caractères |
 | `PII_PROBE_MODE` | `0` | journalise l'arrivée d'un appel (forme, jamais le contenu) |
 | `PII_PSEUDONYMIZE_SYSTEM` | `0` | `1` = pseudonymise aussi le prompt système (dégrade l'agent) |
+
+⚠️ **`PII_CHARS_PER_ENTITY` est une heuristique non calibrée** : aucun corpus réel n'a servi
+à l'établir. Propriété voulue — sous 1000 caractères le seuil vaut 1, donc le comportement
+est **identique à la v1** ; le durcissement ne mord que sur les textes longs, ceux où un faux
+négatif massif peut se cacher. À réviser sur des blocages **réellement observés**, jamais
+élargi « au cas où » (même doctrine que le filtre de faux positifs du NER, §53).
 
 🔵 **Le prompt système n'est PAS pseudonymisé** (décidé sur mesure, 2026-08-06). La sonde
 a journalisé `entites=162` là où le message utilisateur n'en portait que 3 : les 159 autres
@@ -200,6 +227,10 @@ le SOUL**, elles partiraient en clair.
 `environment:` **écraserait** celui du fichier — c'est pourquoi `PII_PROBE_MODE` n'y figure pas.
 
 ## Garanties
+- **Périmètre fermé** (§54) : seul `POST /v1/chat/completions` est traité ; tout autre
+  chemin est **refusé en 403**, jamais relayé en clair. Dans le corps, le texte est masqué
+  partout où il vit — `content` en chaîne, `content` en **blocs**, résultats d'outils
+  (`role: tool`) et **`tool_calls[].function.arguments`**. Voir `wire.py`.
 - **Éphémère** : aucun contenu de message loggué ; table de correspondance en mémoire,
   portée requête, jamais persistée (résout §24 pt 3 : pas de base de correspondance à
   protéger — **écart assumé** avec « par locataire » de §24 pt 2, qui devient sans objet).

@@ -16,22 +16,28 @@ relayee intacte (§4quater : la plateforme ne detient jamais la cle du client).
 /!\ EPHEMERE : aucun contenu de message n'est loggue, aucune table de
 correspondance n'est persistee (portee requete, en memoire).
 
-/!\ ETAT DU DURCISSEMENT (STACK-4 §50) — NE PAS CABLER UN TENANT REEL :
-    trois voies de fuite connues restent OUVERTES a ce stade, volontairement
-    (la sonde base_url doit d'abord prouver que le point d'insertion existe) :
-      1. les chemins hors chat/completions sont relayes BRUTS (pas de liste
-         blanche) — /v1/embeddings, /v1/completions partent en clair ;
-      2. les `content` en blocs ([{"type":"text",...}]) ne sont pas masques ;
-      3. les tool_calls ne sont ni masques a l'aller ni restaures au retour.
-    Ce service n'est utilisable que par un tenant JETABLE sans donnee reelle
-    tant que ces trois points ne sont pas fermes.
+/!\ ETAT DU DURCISSEMENT (STACK-4 §54) : les TROIS voies de fuite du §50 sont
+    FERMEES — liste blanche des chemins, `content` en blocs, `tool_calls` aux
+    deux sens (cf. wire.py). Restent, avant de cabler un tenant reel :
+      - le CABLAGE ROBUSTE (§53) : le detournement par `environment:` est
+        incomplet par construction (#25107 efface la base URL au changement de
+        modele, et la cle vit dans le profil de fournisseur) -> profil portant
+        URL + cle, et barriere egress sur le conteneur agent ;
+      - l'ACCESS LOG TRAEFIK, qui enregistre l'URL complete, token compris ;
+      - les reconnaisseurs senegalais, toujours un TODO (§24).
+    Deux limites assumees, a annoncer plutot qu'a masquer a moitie : la PII
+    portee par une IMAGE n'est pas couverte, et le prompt systeme est hors
+    perimetre (voir PSEUDO_SYSTEM ci-dessous).
 
 Reglages (env) :
-    SHARED_SERVICES_SECRET   secret maitre partage (obligatoire, §36)
-    UPSTREAM_BASE_URL        amont OpenAI-compatible (defaut OpenRouter)
-    PII_FAIL_CLOSED          "1" (defaut) = bloque un contenu sensible mal detecte
-    PII_PROBE_MODE           "1" = journalise l'arrivee d'un appel (forme, pas de
-                             contenu) pour la sonde base_url ; forwarde quand meme
+    SHARED_SERVICES_SECRET     secret maitre partage (obligatoire, §36)
+    UPSTREAM_BASE_URL          amont OpenAI-compatible (defaut OpenRouter)
+    PII_FAIL_CLOSED            "1" (defaut) = bloque un contenu sensible mal detecte
+    PII_CHARS_PER_ENTITY       densite d'entites attendue (defaut 500) — seuil du
+                               garde-fou, cf. pii_engine.assess_risk
+    PII_PSEUDONYMIZE_SYSTEM    "1" = pseudonymise aussi `role: system` (v1)
+    PII_PROBE_MODE             "1" = journalise l'arrivee d'un appel (forme, pas de
+                               contenu) pour la sonde base_url ; forwarde quand meme
 """
 
 from __future__ import annotations
@@ -49,6 +55,7 @@ from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from pii_engine import (
+    DEFAULT_CHARS_PER_ENTITY,
     CompositeDetector,
     Pseudonymizer,
     RegexDetector,
@@ -56,6 +63,15 @@ from pii_engine import (
     resolve_overlaps,
 )
 from sse import completion_to_sse
+from wire import (
+    apply_to_slots,
+    is_generative,
+    is_passthrough_allowed,
+    joined_text,
+    normalise_path,
+    slot_summary,
+    text_slots,
+)
 
 try:
     # Presidio n'est present que sur le VPS ; en son absence, on tourne en
@@ -74,6 +90,16 @@ SECRET = os.environ.get("SHARED_SERVICES_SECRET", "").encode()
 UPSTREAM = os.environ.get("UPSTREAM_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
 FAIL_CLOSED = os.environ.get("PII_FAIL_CLOSED", "1") == "1"
 PROBE = os.environ.get("PII_PROBE_MODE", "0") == "1"
+
+# Seuil du garde-fou : une entite attendue par tranche de N caracteres de texte
+# reconnu sensible. Reglable parce que c'est une heuristique NON CALIBREE (aucun
+# corpus reel) — a reviser sur des blocages reellement observes, pas au jugé.
+try:
+    CHARS_PER_ENTITY = int(os.environ.get("PII_CHARS_PER_ENTITY", "") or DEFAULT_CHARS_PER_ENTITY)
+except ValueError:
+    # Une valeur illisible ne doit pas DESARMER le garde-fou en silence.
+    log.warning("PII_CHARS_PER_ENTITY illisible -> defaut %d", DEFAULT_CHARS_PER_ENTITY)
+    CHARS_PER_ENTITY = DEFAULT_CHARS_PER_ENTITY
 
 # --------------------------------------------------------------------------- #
 #  Prompt systeme : PSEUDONYMISE OU NON ?
@@ -228,10 +254,33 @@ async def proxy(
     if _DETECTOR is None:  # pragma: no cover - fenetre de demarrage
         raise HTTPException(status_code=503, detail="detecteur pas encore charge")
 
-    # Chemins non generatifs (ex. /models) : passthrough integral.
-    # /!\ PAS de liste blanche a ce stade (fuite n°1 documentee en en-tete).
-    if request.method == "GET" or not path.startswith("chat/completions"):
-        return await _passthrough(path, request, authorization)
+    # --- Liste blanche des chemins (fuite n°1, fermee au §54) ---------------
+    # DENY BY DEFAULT : seul `POST chat/completions` est traite, seuls les GET
+    # de la liste blanche traversent. La v1 relayait BRUT tout ce qu'elle ne
+    # savait pas traiter -> /v1/embeddings (vectoriser un dossier client) et
+    # /v1/completions partaient en clair, et toute nouveaute d'API amont serait
+    # devenue une fuite sans qu'on ait rien change.
+    # Une seule forme canonique pour comparer ET pour emettre : un slash de tete
+    # donnerait `<amont>/v1//chat/completions`, que des fournisseurs refusent.
+    path = normalise_path(path)
+
+    if not is_generative(request.method, path):
+        if is_passthrough_allowed(request.method, path):
+            return await _passthrough(path, request, authorization)
+        log.warning("chemin refuse tenant=%s %s %s", slug, request.method, path)
+        return JSONResponse(
+            status_code=403,
+            content={"error": {
+                "type": "pii_chemin_non_supporte",
+                # Le chemin est NOMME : un besoin legitime futur doit se
+                # diagnostiquer en lisant l'erreur, pas en fouillant le code.
+                "message": (
+                    f"Chemin '{request.method} {path}' non supporte par le proxy PII : "
+                    "il ne saurait pas y pseudonymiser les identifiants. "
+                    "Seul /v1/chat/completions est traite."
+                ),
+            }},
+        )
 
     body = await request.json()
 
@@ -256,40 +305,49 @@ async def proxy(
     eng = Pseudonymizer(_DETECTOR)
     messages = body.get("messages", [])
 
-    # Perimetre de traitement : par defaut le prompt systeme en est EXCLU
-    # (cf. PSEUDO_SYSTEM en tete de module — l'exclure evite de reduire les
-    # instructions de l'agent en jetons, et allege du meme coup la detection,
-    # le prompt systeme etant l'essentiel du volume de texte).
-    traites = [
-        m for m in messages
-        if PSEUDO_SYSTEM or m.get("role") != "system"
-    ]
+    # --- Perimetre de traitement (fuites n°2 et n°3, fermees au §54) --------
+    # UNE SEULE enumeration des emplacements de texte (wire.text_slots), qui
+    # sert a la fois au calcul de risque et au masquage. La v1 en avait deux,
+    # ecrites en dur et divergentes : le `content` en blocs n'etait ni masque
+    # ni meme COMPTE par assess_risk — le garde-fou mesurait autre chose que
+    # ce qu'il protegeait. Les slots pointent DANS `body`, donc les ecrire
+    # reecrit le corps envoye a l'amont.
+    #
+    # Le prompt systeme reste hors perimetre par defaut (cf. PSEUDO_SYSTEM en
+    # tete de module) ; c'est `include_system` qui porte cette exclusion.
+    slots = text_slots(messages, include_system=PSEUDO_SYSTEM)
 
     # Evaluation de risque sur le texte concatene (garde-fou fail-closed).
-    joined = "\n".join(
-        m.get("content", "") for m in traites if isinstance(m.get("content"), str)
-    )
+    joined = joined_text(slots)
     ents = await _in_pool(lambda t: resolve_overlaps(_DETECTOR.detect(t)), joined)
-    risk = assess_risk(joined, ents)
+    risk = assess_risk(joined, ents, chars_per_entity=CHARS_PER_ENTITY)
     if FAIL_CLOSED and risk.suspicious_low_detection:
-        log.warning("appel bloque (fail-closed) tenant=%s : contenu sensible, detection nulle", slug)
+        log.warning(
+            "appel bloque (fail-closed) tenant=%s : contenu sensible, %d entite(s) pour %d attendue(s)",
+            slug, risk.entity_count, risk.expected_entity_count,
+        )
         return JSONResponse(
             status_code=422,
             content={"error": {
                 "type": "pii_fail_closed",
-                "message": "Contenu sensible avec detection PII insuffisante — appel bloque.",
+                # Chiffres repris dans le message : un blocage doit etre
+                # explicable au locataire, sinon il est vecu comme une panne.
+                "message": (
+                    "Contenu sensible avec detection PII insuffisante "
+                    f"({risk.entity_count} entite(s) detectee(s), {risk.expected_entity_count} attendue(s)) "
+                    "— appel bloque."
+                ),
             }},
         )
 
-    # Pseudonymisation de chaque message avec UNE table pour toute la requete.
-    for m in traites:
-        c = m.get("content")
-        if isinstance(c, str):
-            m["content"] = await _in_pool(eng.pseudonymize, c)
+    # Pseudonymisation de tous les slots avec UNE table pour toute la requete
+    # (une meme valeur -> un meme jeton d'un message a l'autre, et jusque dans
+    # les arguments d'outil).
+    await _in_pool(apply_to_slots, slots, eng.pseudonymize)
 
     if PROBE:
-        log.info("PROBE ok tenant=%s msgs=%d/%d entites=%d stream=%s systeme=%s",
-                 slug, len(traites), len(messages), risk.entity_count, stream,
+        log.info("PROBE ok tenant=%s msgs=%d slots=[%s] entites=%d stream=%s systeme=%s",
+                 slug, len(messages), slot_summary(slots), risk.entity_count, stream,
                  "pseudonymise" if PSEUDO_SYSTEM else "exclu")
 
     upstream_json = await _forward(path, body, authorization)
@@ -332,6 +390,12 @@ async def _forward(path: str, body: dict, authorization: str | None) -> dict:
 
 
 async def _passthrough(path: str, request: Request, authorization: str | None) -> Response:
+    """Relais brut — reserve aux chemins de `wire._PASSTHROUGH_GET`.
+
+    /!\ Ne JAMAIS appeler cette fonction sans etre passe par
+    `is_passthrough_allowed` : elle ne masque rien. C'est en l'appelant par
+    defaut que la v1 laissait /v1/embeddings partir en clair (fuite n°1).
+    """
     headers = {}
     if authorization:
         headers["Authorization"] = authorization

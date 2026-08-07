@@ -301,25 +301,101 @@ class Pseudonymizer:
 #  Évaluation de risque (garde-fou fail-closed)
 # --------------------------------------------------------------------------- #
 
-_CLINICAL_MARKERS = re.compile(
-    r"\b(patient|patiente|diagnostic|ordonnance|acuit[ée]|ophtalmo|"
-    r"tension|glyc[ée]mie|traitement|posologie|dossier\s+m[ée]dical)\b",
+# Marqueurs de « texte à secret professionnel ». Élargis le 2026-08-07 aux
+# verticales ouvertes par §25 : la liste d'origine était **cliniquement
+# française** et sa couverture était donc **nulle** pour avocats, notaires,
+# banques, assureurs et comptables — c'est-à-dire pour l'essentiel de la
+# famille « secret professionnel » à qui ce proxy est censé se vendre.
+#
+# ⚠️ Critère de sélection, à tenir si la liste s'élargit encore : un marqueur
+# doit être **distinctif du métier**, pas seulement fréquent dans ses documents.
+# `client`, `dossier`, `contrat`, `facture` sont écartés délibérément : ils
+# rendraient `looks_sensitive` vrai sur presque tout texte professionnel, donc
+# armeraient le fail-closed en permanence. Un garde-fou qui bloque tout est
+# désarmé le lendemain — le sur-filtrage se paie en confiance, pas en sécurité.
+_SENSITIVE_MARKERS = re.compile(
+    r"\b("
+    # — santé (liste d'origine)
+    r"patient|patiente|diagnostic|ordonnance|acuit[ée]|ophtalmo|"
+    r"tension|glyc[ée]mie|traitement|posologie|dossier\s+m[ée]dical|"
+    # — droit / notariat
+    r"assignation|jugement|tribunal|greffe|huissier|notaire|plaidoirie|"
+    r"comparution|succession|testament|procuration|mise\s+en\s+demeure|"
+    r"prud'?hommes|proc[èe]s-verbal|acte\s+notari[ée]|"
+    # — banque / assurance
+    r"IBAN|RIB|sinistre|[ée]ch[ée]ancier|souscripteur|b[ée]n[ée]ficiaire|"
+    r"indemnisation|mainlev[ée]e|nantissement|police\s+d'assurance|"
+    # — comptabilité / social
+    r"NINEA|bulletin\s+de\s+(?:paie|salaire)|d[ée]claration\s+fiscale|"
+    r"liasse\s+fiscale|grand\s+livre|"
+    # — marqueurs d'identité, tous métiers confondus
+    # ⚠️ « née? le » exige l'ACCENT, délibérément : écrit `n[ée]e?\s+le`, il
+    # matcherait « ne le » — la négation française la plus courante — et
+    # armerait le garde-fou sur presque tout texte. Le coût du choix : un
+    # « ne le » sans accent n'est pas vu ; `date de naissance` reste le
+    # marqueur robuste pour ce cas.
+    r"date\s+de\s+naissance|née?\s+le|domicili[ée]"
+    r")\b",
     re.IGNORECASE,
 )
+
+# Densité d'entités attendue dans un texte reconnu sensible : au moins une
+# entité par tranche de N caractères. Voir `assess_risk` pour le raisonnement.
+DEFAULT_CHARS_PER_ENTITY = 500
+
+# En deçà, le texte est trop court pour qu'une densité veuille dire quoi que ce
+# soit (valeur héritée de la v1, conservée telle quelle).
+_MIN_TEXT_LENGTH = 120
 
 
 @dataclass(frozen=True)
 class RiskAssessment:
     looks_sensitive: bool
     entity_count: int
-    # True quand le texte a l'air clinique mais que la détection est étonnamment
+    # True quand le texte a l'air sensible mais que la détection est étonnamment
     # maigre : signal d'un possible faux négatif. La couche HTTP décide quoi en
-    # faire (bloquer en santé = fail-closed, ou logguer ailleurs).
+    # faire (bloquer = fail-closed, ou logguer ailleurs).
     suspicious_low_detection: bool
+    # Ce que la densité faisait attendre — journalisable, et rend le blocage
+    # explicable au locataire (« 3 entités attendues, 1 détectée »).
+    expected_entity_count: int
 
 
-def assess_risk(text: str, entities: list[Entity]) -> RiskAssessment:
-    looks = bool(_CLINICAL_MARKERS.search(text))
+def expected_entities(n_chars: int, chars_per_entity: int = DEFAULT_CHARS_PER_ENTITY) -> int:
+    """Nombre minimal d'entités attendu dans un texte sensible de `n_chars`."""
+    if chars_per_entity <= 0:
+        return 1
+    return max(1, n_chars // chars_per_entity)
+
+
+def assess_risk(
+    text: str,
+    entities: list[Entity],
+    *,
+    chars_per_entity: int = DEFAULT_CHARS_PER_ENTITY,
+) -> RiskAssessment:
+    """Signale un texte sensible dont la détection paraît anormalement maigre.
+
+    🔴 La v1 testait `n == 0` : **une seule** entité — une date suffisait —
+    désarmait le garde-fou sur un texte par ailleurs bourré de noms non
+    reconnus. C'est exactement le scénario que §24 pt 4 désigne comme pire
+    qu'une absence de proxy assumée : *« un proxy PII qui laisse passer 5 % des
+    identifiants donne une fausse sécurité »*.
+
+    On passe donc à un **seuil relatif à la longueur** : plus le texte est
+    long, plus on attend d'entités. Propriété voulue — sous 1000 caractères le
+    seuil vaut 1, donc le comportement est **identique à la v1** ; le
+    durcissement ne mord que sur les textes longs, ceux où un faux négatif
+    massif peut se cacher.
+
+    ⚠️ `DEFAULT_CHARS_PER_ENTITY` est une **heuristique non calibrée** : aucun
+    corpus réel n'a servi à l'établir. Elle est réglable par
+    `PII_CHARS_PER_ENTITY` et doit être révisée sur des faux positifs
+    réellement observés — jamais élargie « au cas où » (§53, même doctrine que
+    le filtre de faux positifs du NER).
+    """
+    looks = bool(_SENSITIVE_MARKERS.search(text))
     n = len(entities)
-    suspicious = looks and n == 0 and len(text) > 120
-    return RiskAssessment(looks, n, suspicious)
+    attendu = expected_entities(len(text), chars_per_entity)
+    suspicious = looks and len(text) > _MIN_TEXT_LENGTH and n < attendu
+    return RiskAssessment(looks, n, suspicious, attendu)

@@ -231,6 +231,77 @@ def test_faux_positifs_ner():
     check("'Diop' CONSERVÉ", not est_faux_positif_nom("Diop"))
 
 
+def test_seuil_relatif_et_marqueurs():
+    print("\n[11] Garde-fou durci : seuil relatif + marqueurs élargis (§54)")
+    from pii_engine import expected_entities
+
+    # -- Le seuil relatif ---------------------------------------------------
+    check("sous 1000 caractères, le seuil vaut 1 (comportement v1 conservé)",
+          expected_entities(120) == 1 and expected_entities(999) == 1)
+    check("2000 caractères -> 4 entités attendues", expected_entities(2000) == 4)
+
+    # 🔴 Le scénario que la v1 laissait passer : un texte long et sensible où
+    # UNE SEULE entité (ici une date) suffisait à désarmer le garde-fou.
+    long_texte = (
+        "Compte rendu de consultation du patient reçu ce jour, né le 12/03/1978. "
+        + "L'examen clinique retrouve les éléments habituels du dossier. " * 30
+    )
+    eng = _engine()  # NER muet -> seule la regex détecte (la date)
+    ents = resolve_overlaps(eng.detector.detect(long_texte))
+    risk = assess_risk(long_texte, ents)
+    check("le texte long est reconnu sensible", risk.looks_sensitive)
+    check("détection maigre sur texte long -> suspect (v1 ne voyait rien)",
+          risk.suspicious_low_detection)
+    check("le nombre attendu est exposé pour le journal",
+          risk.expected_entity_count == expected_entities(len(long_texte)))
+    check("le seuil est réglable", not assess_risk(
+        long_texte, ents, chars_per_entity=100_000).suspicious_low_detection)
+
+    # -- Non-régression : le texte court de la v1 se comporte pareil ---------
+    # Longueur tenue entre 121 et 499 caractères : au-dessus de _MIN_TEXT_LENGTH
+    # pour que le garde-fou s'applique, en dessous de la première tranche pour
+    # que le seuil vaille encore 1 (c'est ce qui rend la comparaison à la v1
+    # valide).
+    court = ("Le patient présente une baisse d'acuité visuelle depuis trois "
+             "semaines, avec un fond d'oeil normal et une tension oculaire "
+             "dans les limites ; contrôle prévu dans trois mois.")
+    check("le texte de contrôle est bien dans la première tranche",
+          120 < len(court) < 500)
+    check("texte court sans entité -> toujours suspect",
+          assess_risk(court, []).suspicious_low_detection)
+    check("texte court AVEC une entité -> plus suspect (seuil = 1)",
+          not assess_risk(court, [Entity("DATE", 0, 1, "x")]).suspicious_low_detection)
+
+    # -- Les verticales de §25, dont la couverture était nulle --------------
+    for mot, verticale in [
+        ("mise en demeure", "droit"), ("huissier", "droit"),
+        ("succession", "notariat"), ("IBAN", "banque"),
+        ("sinistre", "assurance"), ("bulletin de paie", "social"),
+        ("NINEA", "comptabilité"), ("née le", "identité"),
+    ]:
+        phrase = f"Objet : {mot}. " + "Suite de la correspondance en cours. " * 5
+        check(f"« {mot} » ({verticale}) reconnu sensible",
+              assess_risk(phrase, []).looks_sensitive)
+
+    # -- Et ce qu'on a délibérément REFUSÉ d'ajouter -------------------------
+    # Trop génériques : ils armeraient le fail-closed sur presque tout texte
+    # professionnel, et un garde-fou qui bloque tout est désarmé le lendemain.
+    banal = ("Peux-tu preparer le devis pour le client, avec le contrat et la "
+             "facture correspondante, puis classer le tout dans le dossier. " * 3)
+    check("un texte commercial banal n'arme pas le garde-fou",
+          not assess_risk(banal, []).looks_sensitive)
+
+    # 🔴 Non-régression sur un piège trouvé en relecture : écrit `n[ée]e?\s+le`,
+    # le marqueur d'identité aurait matché « ne le » — la négation française la
+    # plus courante — et rendu TOUT texte sensible. L'accent est exigé.
+    negation = ("Le fournisseur ne le livrera pas avant lundi ; je ne le "
+                "relancerai qu'en fin de semaine, il ne le sait pas encore.")
+    check("« ne le » (négation) n'arme pas le garde-fou",
+          not assess_risk(negation, []).looks_sensitive)
+    check("« née le » (accentué) reste reconnu",
+          assess_risk("La cliente, née le 12/03/1978, nous a écrit.", []).looks_sensitive)
+
+
 def main() -> int:
     test_reversible_roundtrip()
     test_redaction_is_not_restorable()
@@ -242,6 +313,7 @@ def main() -> int:
     test_luhn()
     test_restore_deep()
     test_faux_positifs_ner()
+    test_seuil_relatif_et_marqueurs()
     print(f"\n===== {_PASS} ok, {_FAIL} FAIL =====")
     return 1 if _FAIL else 0
 
