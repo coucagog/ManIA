@@ -269,6 +269,29 @@ class Pseudonymizer:
             text = text.replace(token, surface)
         return text
 
+    def restore_deep(self, node):
+        """Restaure dans TOUTES les chaînes d'une structure JSON de réponse.
+
+        La v1 ne restaurait que `choices[].message.content`. Le premier appel
+        réel (2026-08-06) a montré que le texte vit à plusieurs endroits de la
+        réponse : `reasoning`, `reasoning_details[].text`, et — Hermes étant un
+        agent — `tool_calls[].function.arguments`. Ces champs revenaient au
+        client avec `[NOM_1]`/`[TEL_1]` bruts : réponse fausse côté agent, et
+        un outil exécuté avec un jeton en argument.
+
+        Appliquer la restauration partout est SÛR : elle ne remplace que les
+        jetons exacts que *cette* instance a elle-même émis (portée requête).
+        Une chaîne qui n'en contient aucun ressort inchangée, et les marqueurs
+        de suppression pure n'ont toujours pas d'entrée dans la table.
+        """
+        if isinstance(node, str):
+            return self.restore(node)
+        if isinstance(node, list):
+            return [self.restore_deep(v) for v in node]
+        if isinstance(node, dict):
+            return {k: self.restore_deep(v) for k, v in node.items()}
+        return node
+
     @property
     def mapping(self) -> dict[str, str]:
         return dict(self._mapping)

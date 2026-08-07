@@ -162,7 +162,14 @@ async def _journal_sans_token(request: Request, call_next):
     parts = request.url.path.split("/")
     if len(parts) > 3 and parts[1] == "g":
         parts[3] = "<token>"
-    log.info("%s %s -> %s", request.method, "/".join(parts), response.status_code)
+    # `auth=` : PRESENCE seule de l'en-tete Authorization, jamais sa valeur ni
+    # sa longueur. Ajoute apres un 401 « Missing Authentication header » renvoye
+    # par l'amont : sans ce temoin, impossible de distinguer « le client n'a
+    # envoye aucune cle » de « le proxy l'a perdue en route » — les deux
+    # donnent exactement la meme erreur, et on ne peut pas relire l'en-tete
+    # apres coup. Le meme doute couterait un aller-retour a chaque incident.
+    log.info("%s %s -> %s (auth=%s)", request.method, "/".join(parts),
+             response.status_code, "oui" if request.headers.get("authorization") else "NON")
     return response
 
 
@@ -288,10 +295,13 @@ async def proxy(
     upstream_json = await _forward(path, body, authorization)
 
     # Restauration des valeurs reelles dans la reponse.
+    # /!\ Sur TOUT le message, pas seulement `content` : le premier appel reel
+    # a montre que le texte vit aussi dans `reasoning`, `reasoning_details[]`
+    # et — pour un agent — `tool_calls[].function.arguments`. Ces champs
+    # revenaient au client avec [NOM_1]/[TEL_1] bruts.
     for choice in upstream_json.get("choices", []):
-        msg = choice.get("message", {})
-        if isinstance(msg.get("content"), str):
-            msg["content"] = eng.restore(msg["content"])
+        if isinstance(choice.get("message"), dict):
+            choice["message"] = eng.restore_deep(choice["message"])
 
     if stream:
         # La restauration ci-dessus a deja eu lieu : le flux ne transporte que

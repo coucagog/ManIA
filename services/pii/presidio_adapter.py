@@ -35,6 +35,47 @@ _PRESIDIO_TO_MANIA = {
     "LOCATION": "ADRESSE",
 }
 
+# --------------------------------------------------------------------------- #
+#  Faux positifs du NER français — première passe du travail de terrain de §24
+#
+#  Constaté au premier appel réel (2026-08-06) : « Ecris un mot pour Fatou
+#  Ndiaye » est parti à l'amont en « [NOM_1] un mot pour [NOM_2] ». Le VERBE a
+#  été étiqueté PERSON par `fr_core_news_sm` — un mot capitalisé en tête de
+#  phrase, cas d'école du modèle small (§16). Résultat : le modèle a reçu une
+#  instruction sans verbe et a répondu à côté.
+#
+#  ⚠️ Un filtre de ce genre RÉDUIT la couverture : quelqu'un qui s'appellerait
+#  « Note » ne serait plus masqué. C'est assumé — la liste ne contient que des
+#  verbes d'instruction et des formules d'adresse, jamais un patronyme
+#  plausible au Sénégal. On ne l'élargira qu'à partir de faux positifs
+#  RÉELLEMENT observés, jamais par anticipation : sur-filtrer ici, c'est
+#  rouvrir §24 pt 4 (« un proxy qui laisse passer donne une fausse sécurité »).
+# --------------------------------------------------------------------------- #
+_FAUX_POSITIFS_NOM = {
+    # verbes d'instruction, très souvent en tête de message
+    "ecris", "écris", "ecrire", "écrire", "redige", "rédige", "rediger", "rédiger",
+    "resume", "résume", "resumer", "résumer", "traduis", "traduire", "corrige",
+    "corriger", "explique", "expliquer", "analyse", "analyser", "liste", "lister",
+    "propose", "proposer", "envoie", "envoyer", "prepare", "prépare", "preparer",
+    "préparer", "note", "noter", "verifie", "vérifie", "cherche", "trouve",
+    "ajoute", "supprime", "modifie", "genere", "génère", "creer", "créer", "cree",
+    "crée", "donne", "montre", "dis", "fais", "peux", "peut",
+    # formules d'adresse et civilités
+    "bonjour", "bonsoir", "salut", "merci", "cordialement", "objet",
+    "madame", "monsieur", "mademoiselle", "docteur", "maitre", "maître",
+    "cher", "chere", "chère", "chers", "cheres", "chères",
+}
+
+
+def est_faux_positif_nom(surface: str) -> bool:
+    """Vrai si cette surface ne doit PAS être retenue comme un nom de personne.
+
+    Fonction pure et sans dépendance Presidio -> testable hors-ligne, comme le
+    cœur (`test_pii_engine.py`). C'est voulu : c'est la seule partie de ce
+    module dont on peut prouver le comportement sans le VPS.
+    """
+    return surface.strip().lower() in _FAUX_POSITIFS_NOM
+
 
 class PresidioDetector:
     """Enveloppe l'AnalyzerEngine de Presidio. Instancié une fois (modèle chargé
@@ -79,5 +120,8 @@ class PresidioDetector:
             mania_type = _PRESIDIO_TO_MANIA.get(r.entity_type)
             if not mania_type:
                 continue
-            out.append(Entity(mania_type, r.start, r.end, text[r.start:r.end]))
+            surface = text[r.start:r.end]
+            if mania_type == "NOM" and est_faux_positif_nom(surface):
+                continue
+            out.append(Entity(mania_type, r.start, r.end, surface))
         return out

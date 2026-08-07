@@ -189,6 +189,48 @@ def test_luhn():
     check("1234 5678 9012 3456 invalide", not luhn_ok("1234567890123456"))
 
 
+def test_restore_deep():
+    print("\n[9] Restauration PROFONDE (reasoning, tool_calls) — constat prod 2026-08-06")
+    eng = _engine(["Fatou Ndiaye"])
+    masque = eng.pseudonymize("Ecris un mot pour Fatou Ndiaye, joignable au 77 710 40 30")
+    check("le nom réel ne part pas à l'amont", "Fatou Ndiaye" not in masque)
+
+    # Forme réellement renvoyée par OpenRouter : le texte vit à quatre endroits.
+    reponse = {
+        "role": "assistant",
+        "content": "Voici le mot pour [NOM_1].",
+        "reasoning": "L'utilisateur veut un mot pour [NOM_1] au [TEL_1].",
+        "reasoning_details": [{"type": "reasoning.text", "text": "[NOM_1] / [TEL_1]"}],
+        "tool_calls": [{"function": {"arguments": '{"tel":"[TEL_1]"}'}}],
+        "refusal": None,
+    }
+    out = eng.restore_deep(reponse)
+    check("content restauré", "Fatou Ndiaye" in out["content"])
+    check("reasoning restauré", "Fatou Ndiaye" in out["reasoning"])
+    check("reasoning_details restauré", "77 710 40 30" in out["reasoning_details"][0]["text"])
+    check("arguments d'outil restaurés",
+          "77 710 40 30" in out["tool_calls"][0]["function"]["arguments"])
+    check("les valeurs None traversent sans dommage", out["refusal"] is None)
+    check("aucun jeton résiduel", "[NOM_1]" not in str(out) and "[TEL_1]" not in str(out))
+
+    # Une réponse sans aucun jeton doit ressortir strictement identique.
+    neutre = {"content": "Bonjour, c'est note.", "n": 3, "ok": True}
+    check("réponse sans jeton inchangée", eng.restore_deep(neutre) == neutre)
+
+
+def test_faux_positifs_ner():
+    print("\n[10] Filtre des faux positifs du NER français (« Ecris » -> [NOM_1])")
+    # presidio_adapter s'importe sans Presidio (import différé dans __init__).
+    from presidio_adapter import est_faux_positif_nom
+    check("'Ecris' rejeté comme nom", est_faux_positif_nom("Ecris"))
+    check("'Rédige' rejeté (accentué)", est_faux_positif_nom("Rédige"))
+    check("'Bonjour' rejeté", est_faux_positif_nom("Bonjour"))
+    check("espaces en trop tolérés", est_faux_positif_nom("  Ecris "))
+    check("'Fatou Ndiaye' CONSERVÉ", not est_faux_positif_nom("Fatou Ndiaye"))
+    check("'Ndiaye' CONSERVÉ", not est_faux_positif_nom("Ndiaye"))
+    check("'Diop' CONSERVÉ", not est_faux_positif_nom("Diop"))
+
+
 def main() -> int:
     test_reversible_roundtrip()
     test_redaction_is_not_restorable()
@@ -198,6 +240,8 @@ def main() -> int:
     test_openai_body_rewrite()
     test_fail_closed_signal()
     test_luhn()
+    test_restore_deep()
+    test_faux_positifs_ner()
     print(f"\n===== {_PASS} ok, {_FAIL} FAIL =====")
     return 1 if _FAIL else 0
 

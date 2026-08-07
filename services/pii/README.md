@@ -33,12 +33,13 @@ câblage par `environment:` ne peut pas être le dispositif final (voir § Sonde
 ---
 
 ## Ce qui est prouvé (hors-ligne) vs à valider en prod
-- ✅ **Cœur déterministe** (`pii_engine.py`) : 30 tests (`python3 test_pii_engine.py`).
+- ✅ **Cœur déterministe** (`pii_engine.py`) : 45 tests (`python3 test_pii_engine.py`).
   Round-trip réversible, **suppression pure non restaurable** (CB/CNI), cohérence
   intra-requête, chevauchement CB↔tél, formats tél sénégalais, réécriture d'un corps
-  `/v1/chat/completions`, garde-fou fail-closed.
-  ⚠️ **Fichier inchangé** depuis le prototype (hash identique) : les 30 tests gardent
-  exactement le sens qu'ils avaient.
+  `/v1/chat/completions`, garde-fou fail-closed, **restauration profonde** et **filtre
+  des faux positifs du NER**.
+  ℹ️ Le fichier n'est plus au hash du prototype : `restore_deep` y a été **ajouté** le
+  2026-08-06 (les 30 tests d'origine sont inchangés et toujours verts ; 15 s'y ajoutent).
 - ⚠️ **HTTP + Presidio** (`main.py`, `presidio_adapter.py`) : **jamais exécutés**.
   Premier run sur le VPS. Reconnaisseurs sénégalais = TODO §24 (travail de terrain).
 
@@ -76,7 +77,7 @@ sudo nano /opt/hermes/pii/.env
 # 2) barriere de verification AVANT build — stdlib pure, ni docker ni reseau
 cd /opt/mania/services/pii
 sudo python3 -m py_compile pii_engine.py presidio_adapter.py sse.py main.py  # syntaxe
-python3 test_pii_engine.py                                        # 30 tests du coeur
+python3 test_pii_engine.py                                        # 45 tests du coeur
 python3 test_sse.py                                               # tests de la re-emission SSE
 #    ROUGE = ON NE BUILD PAS.
 
