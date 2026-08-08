@@ -70,5 +70,7 @@ Le jeton `$SHARED_SERVICES_TOKEN` est déjà dans l'environnement — ne jamais 
 ## Verification Checklist
 - [ ] Le code affiché est `HTTP 200`.
 - [ ] `CHEMIN_SORTIE` existe et sa taille est non nulle (`ls -l CHEMIN_SORTIE`).
-- [ ] `file CHEMIN_SORTIE` indique le type attendu (« PDF document » si `to=pdf`).
+- [ ] Le fichier a bien le type attendu. ⚠️ La commande `file` **n'existe pas** dans le
+      conteneur : vérifie l'en-tête, par ex. `head -c 5 CHEMIN_SORTIE` doit afficher
+      `%PDF-` si `to=pdf`.
 - [ ] À l'ouverture, les `{{champs}}` ont bien été remplacés par les données.

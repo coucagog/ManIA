@@ -1,6 +1,6 @@
 ---
 name: convertir-document
-description: Convertit un document d'un format à un autre (Word, Excel, PowerPoint, PDF, OpenDocument, HTML, CSV, images…) via le service MANIA. À utiliser dès que l'utilisateur demande une conversion de format (par ex. docx→pdf, pdf→docx, xlsx→pdf) ou pour livrer un document produit sous forme de PDF propre.
+description: Convertit un document bureautique (Word, Excel, PowerPoint, OpenDocument, HTML, CSV, RTF) vers un autre format, PDF compris, via le service MANIA. À utiliser dès que l'utilisateur demande une conversion de format (par ex. docx→pdf, xlsx→pdf, html→pdf) ou pour livrer un document produit sous forme de PDF propre. Le PDF en ENTRÉE n'est pas géré.
 version: 1.1.0
 metadata:
   hermes:
@@ -15,15 +15,24 @@ MANIA met à disposition un service de conversion de documents partagé, propuls
 LibreOffice. Son adresse est dans l'environnement (`$MANIA_DOCUMENTS_URL`) : **utilise
 toujours la variable, jamais une adresse écrite en clair** — selon le locataire, le service
 se joint par un nom public ou par un nom interne, et une adresse recopiée en dur échoue
-silencieusement sur la moitié des installations. Il convertit entre la plupart des
-formats bureautiques : Word (`docx`/`doc`), Excel (`xlsx`/`xls`), PowerPoint (`pptx`/`ppt`),
-OpenDocument (`odt`/`ods`/`odp`), `pdf`, `html`, `csv`, `txt`, `rtf`, images (`png`/`jpg`),
-`epub`. L'authentification utilise le jeton **déjà présent dans l'environnement**
+silencieusement sur la moitié des installations.
+
+**L'entrée et la sortie n'acceptent pas les mêmes formats** — ne promets pas une conversion
+avant de l'avoir tentée :
+- **En entrée** : Word (`docx`/`doc`), Excel (`xlsx`/`xls`), PowerPoint (`pptx`/`ppt`),
+  OpenDocument (`odt`/`ods`/`odp`), `html`, `csv`, `txt`, `rtf`.
+  ⚠️ **Le `pdf` en ENTRÉE est refusé** (`422`, « format d'entrée non géré ») — observé en
+  production le 2026-08-08. Un PDF ne se reconvertit donc pas : il faut repartir du document
+  source. Si l'utilisateur n'a qu'un PDF, dis-le-lui plutôt que d'essayer.
+- **En sortie** : `pdf`, et les formats bureautiques ci-dessus, plus images (`png`/`jpg`).
+
+L'authentification utilise le jeton **déjà présent dans l'environnement**
 (`$SHARED_SERVICES_TOKEN`) — ne jamais le demander à l'utilisateur ni l'afficher.
 
 ## When to Use
 - L'utilisateur demande explicitement une conversion : « convertis ce Word en PDF »,
   « transforme ce fichier en xlsx », « donne-moi ça en PDF », etc.
+  ⚠️ Sauf si la **source est un PDF** : ce sens-là n'est pas géré (voir Overview).
 - Tu viens de produire un document (par ex. un rapport `.docx`) et il doit être remis en
   **PDF** propre.
 - **Ne pas** utiliser pour modifier le *contenu* d'un document : c'est une conversion de
@@ -66,4 +75,6 @@ OpenDocument (`odt`/`ods`/`odp`), `pdf`, `html`, `csv`, `txt`, `rtf`, images (`p
 ## Verification Checklist
 - [ ] Le code affiché est bien `HTTP 200`.
 - [ ] `CHEMIN_SORTIE` existe et sa taille est non nulle (`ls -l CHEMIN_SORTIE`).
-- [ ] `file CHEMIN_SORTIE` indique le type attendu (par ex. « PDF document » pour `to=pdf`).
+- [ ] Le fichier a bien le type attendu. ⚠️ La commande `file` **n'existe pas** dans le
+      conteneur : vérifie l'en-tête, par ex. pour un PDF
+      `head -c 5 CHEMIN_SORTIE` doit afficher `%PDF-`.
