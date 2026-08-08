@@ -28,10 +28,14 @@
 #  nouveau-tenant.sh lit `MANIA_STT_URL` dans l'environnement du conteneur ;
 #  sur un locataire ferme cette variable doit valoir
 #      http://mania-transcription:8000/v1/transcribe
-#  Un locataire ferme AVANT cette version appelle encore
-#  `https://transcription.mania.sn/...`, qui n'est plus resolvable : ce script
-#  le detecte et le signale, il ne peut pas le corriger (c'est une ligne du
-#  compose du locataire, donc un redemarrage).
+#  Un locataire ne AVANT la v3 a DEUX defauts, pas un : la variable manque,
+#  ET son wrapper porte l'URL publique en dur -- il ignorerait la variable
+#  meme posee. Ce script verifie les deux et les signale ; il ne les corrige
+#  pas (l'un est une ligne du compose donc un redemarrage, l'autre vit dans
+#  le volume du locataire).
+#  🎯 Ne verifier que la variable donnerait un FAUX VERT : l'avertissement
+#  disparaitrait et la transcription resterait cassee. C'est la raison d'etre
+#  du double controle.
 #
 #  POURQUOI PAS DANS LE COMPOSE DES SERVICES
 #  Y declarer les reseaux des locataires serait declaratif, donc plus robuste
@@ -140,15 +144,33 @@ while read -r RESEAU; do
   done
 
   # Le raccordement reseau ne sert a rien si l'agent appelle encore le nom
-  # d'hote public. Verifiable sans rien casser : la variable est dans
-  # l'environnement du conteneur.
+  # d'hote public. DEUX choses doivent etre vraies, et n'en verifier qu'une
+  # donne un FAUX VERT :
+  #   - la variable MANIA_STT_URL pointe sur le nom interne ;
+  #   - le wrapper la LIT. Ceux des locataires nes avant la v3 de
+  #     nouveau-tenant.sh portent l'URL publique EN DUR et l'ignorent.
+  # Un wrapper absent n'est pas un defaut : ce locataire n'a pas la
+  # transcription, il n'y a rien a reparer.
+  WRAP="/home/hermes/.hermes/bin/mania-transcribe.sh"
+  WRAP_ETAT="absent"
+  if docker exec "$SLUG-agent" test -f "$WRAP" 2>/dev/null; then
+    if docker exec "$SLUG-agent" grep -q 'MANIA_STT_URL' "$WRAP" 2>/dev/null; then
+      WRAP_ETAT="lit-la-variable"
+    else
+      WRAP_ETAT="url-en-dur"
+    fi
+  fi
+
   URL_STT="$(docker inspect "$SLUG-agent" \
     --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
     | sed -n 's/^MANIA_STT_URL=//p' || true)"
-  case "$URL_STT" in
-    http://mania-transcription:*) ;;
-    *) STT_A_CORRIGER="$STT_A_CORRIGER $SLUG" ;;
-  esac
+  VAR_OK=0
+  case "$URL_STT" in http://mania-transcription:*) VAR_OK=1 ;; esac
+
+  if [ "$WRAP_ETAT" = "url-en-dur" ] \
+     || { [ "$WRAP_ETAT" = "lit-la-variable" ] && [ "$VAR_OK" = "0" ]; }; then
+    STT_A_CORRIGER="$STT_A_CORRIGER $SLUG"
+  fi
 done <<EOF
 $(docker network ls --format '{{.Name}}')
 EOF
@@ -179,10 +201,26 @@ echo
 echo "  ATTENTION - transcription CASSEE sur :$STT_A_CORRIGER"
 echo "  Ces locataires sont fermes mais leur agent appelle encore le nom d'hote"
 echo "  public de la transcription, qui n'est plus resolvable chez eux."
-echo "  Correctif (une ligne dans /opt/hermes/<slug>/docker-compose.yml, sous"
-echo "  environment: de <slug>-agent), puis 'docker compose up -d' :"
-echo "      - MANIA_STT_URL=http://mania-transcription:8000/v1/transcribe"
-echo "  (jamais 'docker compose down -v' : cela detruit hermes-home)"
+echo
+echo "  Le correctif a DEUX volets. Le premier seul donne un FAUX VERT : cet"
+echo "  avertissement disparaitrait alors que la transcription serait toujours"
+echo "  cassee, parce que le wrapper des locataires nes AVANT la v3 de"
+echo "  nouveau-tenant.sh porte l'URL publique EN DUR et ignore la variable."
+echo
+echo "  1) La variable, dans /opt/hermes/<slug>/docker-compose.yml, sous"
+echo "     environment: de <slug>-agent, puis 'docker compose up -d' :"
+echo "         - MANIA_STT_URL=http://mania-transcription:8000/v1/transcribe"
+echo "     (jamais 'docker compose down -v' : cela detruit hermes-home)"
+echo
+echo "  2) Le wrapper, s'il est anterieur a la v3 -- verifier puis corriger :"
+echo "     sudo docker exec <slug>-agent cat /home/hermes/.hermes/bin/mania-transcribe.sh"
+echo "     La ligne d'URL doit etre :"
+echo '         "${MANIA_STT_URL:-https://transcription.mania.sn/v1/transcribe}" \'
+echo
+echo "  Preuve (le fichier n'est pas de l'audio, on attend un ECHEC utile) :"
+echo "     sudo docker exec <slug>-agent sh -c 'echo x > /tmp/a.txt'"
+echo "     sudo docker exec <slug>-agent sh /home/hermes/.hermes/bin/mania-transcribe.sh /tmp/a.txt"
+echo "     'echec curl' = injoignable · 401/403 = token refuse · autre HTTP = OK"
 fi
 echo "============================================================="
 
