@@ -165,9 +165,11 @@ fi
 if [ "$PII" = "1" ]; then
   RESEAU_INTERNE="true"
   URL_STT="http://mania-transcription:8000/v1/transcribe"
+  URL_DOCS="http://mania-documents:8000"
 else
   RESEAU_INTERNE="false"
   URL_STT="https://transcription.$DOMAINE_BASE/v1/transcribe"
+  URL_DOCS="https://documents.$DOMAINE_BASE"
 fi
 
 URL="https://$SLUG.$DOMAINE_BASE"
@@ -226,6 +228,11 @@ services:
       - API_SERVER_KEY=\${API_SERVER_KEY:?definir dans .env}
       - SHARED_SERVICES_TOKEN=\${SHARED_SERVICES_TOKEN:-}
       - MANIA_STT_URL=$URL_STT
+      # Lue par les skills mania/convertir-document et mania/remplir-gabarit.
+      # Sans elle, un locataire ferme copie le nom d'hote public ecrit dans le
+      # SKILL.md et n'atteint jamais le service -- l'agent le DIT (il l'a dit
+      # en production le 2026-08-08), mais il ne convertit rien.
+      - MANIA_DOCUMENTS_URL=$URL_DOCS
     volumes:
       - hermes-home:/home/hermes/.hermes
       - hermes-agent-src:/opt/hermes
