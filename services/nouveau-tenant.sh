@@ -81,7 +81,10 @@ echo "$SLUG" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$' \
   || err "slug invalide (minuscules, chiffres, tirets ; pas de tiret en bord)"
 
 # Collision de nom de routeur Traefik = site de production casse.
-for reserve in mania traefik www api admin transcription documents pii; do
+# ⚠️ DOIT rester identique a RESERVED dans services/main.py (le demon). Les deux
+# listes avaient diverge : le demon acceptait 'transcription', 'documents' et
+# 'pii', que ce script refusait ensuite -- refus tardif, apres creation du job.
+for reserve in mania traefik www api admin app mail transcription documents pii; do
   [ "$SLUG" = "$reserve" ] && err "'$SLUG' est reserve (collision Traefik/DNS)"
 done
 
