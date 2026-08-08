@@ -23,7 +23,8 @@
 #
 #  Usage :
 #    sudo ./nouveau-tenant.sh <slug> ["Nom client"] ["Domaine"] ["NomAgent"]
-#    sudo ./nouveau-tenant.sh <slug> --owner=mls@gcouca.com --pack=ophtalmo
+#    sudo ./nouveau-tenant.sh <slug> --owner=mls@gcouca.com --pack=sante
+#    sudo ./nouveau-tenant.sh <slug> ... --pii      # force la pseudonymisation
 #    sudo ./nouveau-tenant.sh <slug> ... --auto     # sans confirmation (auto)
 #    sudo ./nouveau-tenant.sh <slug> ... --creer-seulement   # ne démarre pas
 # =============================================================================
@@ -35,6 +36,7 @@ AUTO=0
 CREER_SEULEMENT=0
 OWNER_EMAIL=""
 PACK="generique"
+FORCE_PII=0
 SECRET_PROV="/opt/hermes/gabarit/.provisioning-secret"
 SECRET_SHARED="/opt/hermes/gabarit/.shared-services-secret"
 
@@ -52,6 +54,12 @@ for a in "$@"; do
     --creer-seulement) CREER_SEULEMENT=1 ;;
     --owner=*) OWNER_EMAIL="${a#--owner=}" ;;
     --pack=*)  PACK="${a#--pack=}" ;;
+    # --pii ELEVE le niveau, il ne l'abaisse jamais. Il n'existe volontairement
+    # AUCUN --no-pii : desactiver la pseudonymisation d'un secteur qui la
+    # declare serait un geste de conformite, pas une option de ligne de
+    # commande -- et le 55 a montre ce que coute un geste banal qui desarme
+    # le dispositif en silence.
+    --pii)     FORCE_PII=1 ;;
     *) ARGS+=("$a") ;;
   esac
 done
@@ -87,9 +95,21 @@ command -v docker   >/dev/null || err "docker absent"
 docker network inspect web >/dev/null 2>&1 || err "reseau docker 'web' introuvable"
 
 # --- 0. Le pack decide de la pseudonymisation --------------------------------
+# LE PACK EST LE SECTEUR D'ACTIVITE. Le panneau d'admin passe `pack={d.secteur}`
+# (src/app/admin/demandes/page.tsx), donc les valeurs possibles sont les douze
+# slugs de src/lib/secteurs.ts -- 'sante', 'droit', 'commerce'... Il faut un
+# packs/<secteur>.conf pour chacun, sinon le provisionnement web est refuse.
+#
+# ⚠️ Le secteur est declare par le PROSPECT dans le formulaire de candidature.
+# C'est un defaut, pas un verdict : --pii permet d'elever au cas par cas (un
+# cabinet de conseil qui traite des dossiers RH coche « Services »).
+#
 # La declaration est DANS le pack, pas dans ce script : y tenir la liste des
-# packs sensibles serait une liste de plus, et le STACK-4 54 a etabli que dans
-# ce service les defauts viennent des listes.
+# secteurs sensibles serait une liste de plus, et le STACK-4 54 a etabli que
+# dans ce service les defauts viennent des listes. Le doublon avec secteurs.ts
+# est ASSUME : ajouter un secteur sans declarer son .conf fait echouer le
+# provisionnement avec un message clair, et c'est exactement le moment ou la
+# question « sensible ou non ? » doit etre posee.
 #
 # Format de $GABARIT/packs/<pack>.conf -- une seule cle lue, aucun `source` :
 #     PII=1     # ou PII=0
@@ -115,6 +135,13 @@ elif [ "$PACK" != "generique" ]; then
   err "abandon"
 else
   info "pack 'generique' sans declaration -- PII desactive (comportement historique)"
+fi
+
+# --pii n'a qu'un sens : monter. Un secteur qui declare PII=1 le reste, que le
+# drapeau soit passe ou non.
+if [ "$FORCE_PII" = "1" ] && [ "$PII" = "0" ]; then
+  PII=1
+  info "--pii : le secteur '$PACK' ne l'exigeait pas, pseudonymisation FORCEE"
 fi
 
 if [ "$PII" = "1" ]; then

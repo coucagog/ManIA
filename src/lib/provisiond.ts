@@ -71,6 +71,10 @@ export function provisionStart(input: {
   agentName?: string
   ownerEmail: string
   pack?: string
+  // ÉLÈVE le niveau, ne l'abaisse jamais : un secteur qui déclare PII=1 le
+  // reste, `pii: false` ou non. Il n'existe volontairement aucun moyen de
+  // désactiver la pseudonymisation depuis le web — voir services/gabarit/packs.
+  pii?: boolean
 }) {
   return call<{ job_id?: string; status?: string; slug?: string; detail?: string }>(
     'POST',
@@ -82,6 +86,7 @@ export function provisionStart(input: {
       agent_name: input.agentName,
       owner_email: input.ownerEmail,
       pack: input.pack,
+      pii: input.pii,
     },
   )
 }

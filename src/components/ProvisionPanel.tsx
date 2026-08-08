@@ -17,6 +17,9 @@ type Result = {
   basicauth_password?: string
   route_status?: string
   agent_health?: string
+  // Rempli par le démon quand il saura le remonter. Affiché seulement s'il est
+  // là : mieux vaut ne rien dire que d'affirmer un état qu'on n'a pas mesuré.
+  pii?: string
 }
 
 export function ProvisionPanel({
@@ -33,6 +36,11 @@ export function ProvisionPanel({
   pack?: string
 }) {
   const [slug, setSlug] = useState(defaultSlug ?? '')
+  // Décoché par défaut, et c'est volontaire : la case FORCE, elle ne reflète
+  // pas l'état. Le secteur déclaré peut déjà exiger la pseudonymisation — cette
+  // case ne sait pas le dire (la déclaration vit dans gabarit/packs/ sur le
+  // VPS) et ne peut de toute façon jamais l'éteindre.
+  const [forcerPii, setForcerPii] = useState(false)
   const [phase, setPhase] = useState<Phase>('idle')
   const [result, setResult] = useState<Result | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +55,7 @@ export function ProvisionPanel({
       const r = await fetch('/api/admin/provision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, name, sector, ownerEmail, pack }),
+        body: JSON.stringify({ slug, name, sector, ownerEmail, pack, pii: forcerPii }),
       })
       const j = await r.json()
       if (!r.ok || !j.job_id) {
@@ -109,6 +117,24 @@ export function ProvisionPanel({
         {phase === 'running' ? 'Provisionnement…' : 'Provisionner'}
       </button>
 
+      <label className="adm-pii">
+        <input
+          type="checkbox"
+          checked={forcerPii}
+          onChange={(e) => setForcerPii(e.target.checked)}
+          disabled={phase === 'running'}
+        />
+        <span>
+          Forcer la pseudonymisation
+          <em>
+            Sans effet si le secteur déclaré l&apos;exige déjà — cette case ne peut
+            que l&apos;imposer, jamais la retirer. Le locataire perd alors tout accès
+            direct à l&apos;extérieur : latence plus élevée, et seuls les modèles
+            servis par le proxy restent joignables.
+          </em>
+        </span>
+      </label>
+
       {phase === 'running' && (
         <span className="adm-aide">
           Création en cours (~1 min). Ne ferme pas la page.
@@ -134,7 +160,8 @@ export function ProvisionPanel({
             <code>{result.webui_password}</code>
           </p>
           <p className="adm-aide">
-            Route {result.route_status} · Agent {result.agent_health}. Le client se
+            Route {result.route_status} · Agent {result.agent_health}
+            {result.pii && <> · Pseudonymisation {result.pii}</>}. Le client se
             connecte avec son compte mania.sn puis ce mot de passe, et saisit sa clé
             LLM dans l&apos;interface.
           </p>

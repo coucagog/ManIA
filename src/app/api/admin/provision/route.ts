@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
   }
 
   let corps: {
-    slug?: string; name?: string; sector?: string; ownerEmail?: string; pack?: string
+    slug?: string; name?: string; sector?: string; ownerEmail?: string
+    pack?: string; pii?: boolean
   }
   try {
     corps = await req.json()
@@ -35,6 +36,11 @@ export async function POST(req: NextRequest) {
   const ownerEmail = (corps.ownerEmail ?? '').trim().toLowerCase()
   const sector = (corps.sector ?? '').trim() || undefined
   const pack = (corps.pack ?? '').trim() || undefined
+  // `=== true` et pas de coercition : seul un vrai booléen force. Une chaîne
+  // vide, "false" ou 0 arrivés par erreur ne doivent pas allumer un dispositif
+  // dont le coût (latence, CPU du proxy partagé) est réel. Et rien ici ne peut
+  // l'ÉTEINDRE : le secteur reste maître de son PII=1.
+  const pii = corps.pii === true || undefined
 
   if (!slug || !name || !ownerEmail) {
     return NextResponse.json(
@@ -44,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { status, body } = await provisionStart({ slug, name, ownerEmail, sector, pack })
+    const { status, body } = await provisionStart({ slug, name, ownerEmail, sector, pack, pii })
     return NextResponse.json(body, { status })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
