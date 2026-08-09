@@ -3,8 +3,20 @@ FROM python:3.11-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-# Modele spaCy small FR mis en cache AU BUILD -> zero egress au runtime (patron §36).
-RUN python -m spacy download fr_core_news_sm
+
+# Modele spaCy FR mis en cache AU BUILD -> zero egress au runtime (patron §36).
+#
+# `md` et non `sm` depuis le §57 : sur banc de phrases professionnelles
+# senegalaises, `sm` ratait 20 % des NOMS (« Mamadou Lamine Sarr », « Ibrahima
+# Fall », « Serigne Modou Kane ») et 41 % des ADRESSES. Justification chiffree
+# complete en tete de presidio_adapter.py.
+#
+# /!\ Installe par URL EXACTE, pas par `python -m spacy download` : cette
+# commande resout la derniere version compatible au moment du build, ce qui
+# rouvrirait exactement la derive que l'epinglage de requirements.txt vient de
+# fermer. Le modele EST le detecteur — il s'epingle comme le reste.
+ARG SPACY_MODEL_URL=https://github.com/explosion/spacy-models/releases/download/fr_core_news_md-3.8.0/fr_core_news_md-3.8.0-py3-none-any.whl
+RUN pip install --no-cache-dir "${SPACY_MODEL_URL}"
 
 # /!\ Cette liste est NOMINATIVE : tout module ajoute au service doit y etre
 # ajoute ici, sinon le conteneur demarre en ModuleNotFoundError.

@@ -56,6 +56,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from pii_engine import (
     DEFAULT_CHARS_PER_ENTITY,
+    CachedDetector,
     CompositeDetector,
     Pseudonymizer,
     RegexDetector,
@@ -64,7 +65,6 @@ from pii_engine import (
 )
 from sse import completion_to_sse
 from wire import (
-    apply_to_slots,
     is_generative,
     is_passthrough_allowed,
     joined_text,
@@ -145,7 +145,7 @@ _HTTP_TIMEOUT = httpx.Timeout(300.0, connect=10.0)
 #  meme doctrine que transcription (« file bornee, pas de parallelisme libre »).
 #  Effet de bord voulu : /health reste repondant pendant une detection longue.
 # --------------------------------------------------------------------------- #
-_DETECTOR: CompositeDetector | None = None
+_DETECTOR: CachedDetector | None = None
 _EXECUTOR: ThreadPoolExecutor | None = None
 
 
@@ -159,7 +159,10 @@ async def lifespan(app: FastAPI):
         log.info("Presidio pret")
     else:
         log.warning("Presidio absent -> mode REGEX-SEUL (noms/adresses non detectes)")
-    _DETECTOR = CompositeDetector(dets)
+    # Enveloppe memoisante (§57) : c'est elle qui absorbe la relecture de
+    # l'historique a chaque tour de la boucle d'agent. Elle ne retient que des
+    # bornes, jamais des surfaces — voir CachedDetector.
+    _DETECTOR = CachedDetector(CompositeDetector(dets))
     _EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pii-detect")
     log.info("mania-pii pret — amont=%s fail_closed=%s probe=%s", UPSTREAM, FAIL_CLOSED, PROBE)
     yield
@@ -203,6 +206,28 @@ async def _in_pool(fn, *args):
     """Execute un traitement CPU-bound dans le pool a 1 worker."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_EXECUTOR, fn, *args)
+
+
+def _detecter_par_slot(detector, slots) -> list[list]:
+    """Detecte une fois par slot. Renvoie les entites resolues, slot par slot.
+
+    Boucle entiere dans le pool (un seul aller-retour) : spaCy n'est pas sur en
+    acces concurrent, et decouper en N taches ne ferait qu'entrelacer des
+    requetes sur le meme worker.
+    """
+    return [resolve_overlaps(detector.detect(s.get())) for s in slots]
+
+
+def _masquer_slots(eng: Pseudonymizer, slots, par_slot) -> int:
+    """Ecrit les slots masques, a partir des entites deja detectees.
+
+    L'ordre des slots est celui de `text_slots`, donc l'ordre d'attribution des
+    jetons est inchange par rapport a `apply_to_slots(slots, pseudonymize)` :
+    [NOM_1] designe toujours le premier nom rencontre dans le fil.
+    """
+    for s, ents in zip(slots, par_slot):
+        s.set(eng.apply(s.get(), ents))
+    return len(slots)
 
 
 def _verify(slug: str, token: str) -> None:
@@ -302,7 +327,10 @@ async def proxy(
     stream = bool(body.pop("stream", False))
     body.pop("stream_options", None)  # sans `stream`, l'amont le rejetterait
 
-    eng = Pseudonymizer(_DETECTOR)
+    # Detecteur CLOISONNE au locataire : le cache de §57 ne doit pas etre
+    # partage entre tenants (canal temporel, cf. CachedDetector).
+    detector = _DETECTOR.scoped(slug)
+    eng = Pseudonymizer(detector)
     messages = body.get("messages", [])
 
     # --- Perimetre de traitement (fuites n°2 et n°3, fermees au §54) --------
@@ -317,9 +345,21 @@ async def proxy(
     # tete de module) ; c'est `include_system` qui porte cette exclusion.
     slots = text_slots(messages, include_system=PSEUDO_SYSTEM)
 
-    # Evaluation de risque sur le texte concatene (garde-fou fail-closed).
+    # --- Detection : UNE SEULE passe, partagee par le risque et le masquage --
+    # La v1 detectait sur le texte concatene pour `assess_risk`, JETAIT le
+    # resultat, puis redetectait slot par slot dans `pseudonymize` : le meme
+    # texte analyse deux fois, pour un facteur 1,9 mesure (§57).
+    #
+    # ⚠️ Consequence assumee du passage au slot : une entite qui chevaucherait
+    # le `\n` de jointure entre deux slots (wire.joined_text) n'est plus vue
+    # par le garde-fou. Elle ne l'etait de toute facon jamais par le MASQUAGE,
+    # qui a toujours travaille slot par slot — donc le garde-fou mesure
+    # desormais exactement ce qu'il protege, ce qui etait tout l'objet de
+    # wire.py. Et le sens de l'ecart est le bon : moins d'entites comptees =
+    # fail-closed plus prompt a bloquer, jamais plus laxiste.
     joined = joined_text(slots)
-    ents = await _in_pool(lambda t: resolve_overlaps(_DETECTOR.detect(t)), joined)
+    par_slot = await _in_pool(_detecter_par_slot, detector, slots)
+    ents = [e for spans in par_slot for e in spans]
     risk = assess_risk(joined, ents, chars_per_entity=CHARS_PER_ENTITY)
     if FAIL_CLOSED and risk.suspicious_low_detection:
         log.warning(
@@ -342,8 +382,10 @@ async def proxy(
 
     # Pseudonymisation de tous les slots avec UNE table pour toute la requete
     # (une meme valeur -> un meme jeton d'un message a l'autre, et jusque dans
-    # les arguments d'outil).
-    await _in_pool(apply_to_slots, slots, eng.pseudonymize)
+    # les arguments d'outil). Les entites sont celles deja detectees ci-dessus :
+    # le texte EVALUE et le texte MASQUE partagent litteralement les memes
+    # bornes, ils ne peuvent plus diverger.
+    await _in_pool(_masquer_slots, eng, slots, par_slot)
 
     if PROBE:
         log.info("PROBE ok tenant=%s msgs=%d slots=[%s] entites=%d stream=%s systeme=%s",

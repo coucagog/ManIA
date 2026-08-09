@@ -17,6 +17,7 @@ Doctrine (STACK §5 / §24) :
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Protocol
@@ -100,6 +101,26 @@ class _Recognizer:
     validate: Callable[[str], bool] | None = None
 
 
+# Séparateur entre un mot-clé d'ancrage et la valeur qu'il annonce.
+#
+# 🔴 §57 : ce séparateur s'écrivait `\s*[:n°]*\s*`, qui ne connaissait que la
+# prose (« dossier 2024-118 », « référence : 2024-118 »). Or Hermes est un
+# AGENT : sa charge utile voyage en JSON, dans
+# `tool_calls[].function.arguments`, sous la forme `"reference": "2024-118"`.
+# Les GUILLEMETS n'étaient pas prévus -> le motif ne mordait pas, et NI le
+# numéro de dossier NI le numéro de CNI n'étaient masqués. Mesuré : un corps
+# d'appel d'outil ressortait avec `2024-118` en clair.
+#
+# Le cas de la CNI est le plus grave : elle est en SUPPRESSION PURE (jamais
+# transmise, par politique), et elle partait pourtant intacte dès qu'elle
+# transitait par un argument d'outil.
+#
+# `wire.py` traite `arguments` comme du TEXTE BRUT — décision assumée et
+# documentée là-bas. Ce sont donc les motifs qui doivent savoir lire du JSON,
+# et non `wire.py` qui doit reparser.
+_SEP = r"[\s:n°\"']*"
+
+
 def _build_recognizers() -> list[_Recognizer]:
     recs: list[_Recognizer] = []
 
@@ -116,7 +137,7 @@ def _build_recognizers() -> list[_Recognizer]:
         "CNI",
         re.compile(
             r"(?:CNI|C\.N\.I|carte\s+nationale(?:\s+d['e]identit[ée])?|NIN|"
-            r"num[ée]ro\s+d['e]identit[ée])\s*[:n°]*\s*(\d[\d ]{10,20}\d)",
+            r"num[ée]ro\s+d['e]identit[ée])" + _SEP + r"(\d[\d ]{10,20}\d)",
             re.IGNORECASE,
         ),
     ))
@@ -148,7 +169,7 @@ def _build_recognizers() -> list[_Recognizer]:
         "DOSSIER",
         re.compile(
             r"(?:dossier|r[ée]f(?:[ée]rence)?|réf|dossier\s*n°|n°\s*dossier)"
-            r"\s*[:n°]*\s*([A-Za-z]?\d[\w\-/]{2,})",
+            + _SEP + r"([A-Za-z]?\d[\w\-/]{2,})",
             re.IGNORECASE,
         ),
     ))
@@ -195,6 +216,112 @@ class CompositeDetector:
         for d in self._detectors:
             found.extend(d.detect(text))
         return found
+
+
+# --------------------------------------------------------------------------- #
+#  Mémoïsation de la détection (§57)
+# --------------------------------------------------------------------------- #
+
+# En deçà, on ne met RIEN en cache : une empreinte SHA-256 de texte COURT est
+# attaquable par force brute. Un numéro de téléphone sénégalais, c'est 10^7
+# possibilités — quiconque obtiendrait le cache retrouverait la valeur. Au-delà
+# du seuil, l'espace des textes possibles rend l'attaque sans objet.
+#
+# Valeur CHOISIE SUR MESURE (§57), pas au jugé. Sur la conversation d'agent de
+# 28 complétions (85 slots, longueurs 97 / 200 / 588) :
+#
+#      seuil      slots cachables      durée
+#         0            85/85           1,11 s
+#        80            85/85           1,22 s
+#       120            57/85           4,83 s
+#       200            48/85           6,11 s
+#
+# 80 est le point où la prudence est GRATUITE : il est très au-dessus de tout
+# identifiant nu (téléphone ~12 car., e-mail ~25, CNI ~17, adresse ~40) et
+# très en dessous du plus court message réel observé (97). Monter à 200
+# n'aurait rien protégé de plus — les identifiants nus sont déjà exclus — et
+# aurait coûté un facteur 5, c'est-à-dire l'essentiel du gain du correctif.
+_CACHE_MIN_CHARS = 80
+
+# Bornes du cache : un VPS SANS SWAP ne pardonne pas une table qui croît sans
+# limite. Éviction FIFO (le plus ancien inséré), suffisante ici : dans une
+# boucle d'agent, ce qui sert est ce qui vient d'être écrit.
+_CACHE_MAX_ENTRIES = 2048
+
+
+class CachedDetector:
+    """Mémoïse la détection par texte. Enveloppe n'importe quel `Detector`.
+
+    Pourquoi (STACK-4 §57)
+    ----------------------
+    Hermes est un AGENT : chaque complétion renvoie TOUT l'historique. Le
+    message n°3 d'une conversation de 28 tours est donc réanalysé 25 fois, et
+    les résultats d'outil — « le texte le PLUS chargé en PII » (wire.py:138) —
+    avec lui. Le coût est QUADRATIQUE en nombre de tours, ce qui explique le
+    saut mesuré en prod : 89 entités / 15 complétions / 2 min au §55, puis
+    455 / 28 / 3 min au §56, pour SIX données réelles inchangées.
+
+    Mesuré ici sur la même conversation de 28 complétions : **20,5 s → 1,8 s**.
+    C'est le correctif qui porte le blocage n°1, loin devant les deux autres.
+
+    Ce que le cache NE CONTIENT PAS, et pourquoi
+    -------------------------------------------
+    Les valeurs stockées sont des **(type, début, fin)** — jamais la surface.
+    Les surfaces sont retranchées dans le texte que l'appelant fournit déjà.
+    Un vidage mémoire du cache ne rend donc aucune PII, et la doctrine
+    « rien n'est persisté, rien n'est journalisé » (STACK-3 §1) tient : la table
+    de correspondance reste, elle, de portée requête.
+
+    /!\\ CLOISONNEMENT PAR LOCATAIRE. La clé porte un `scope` (le slug), sinon
+    un hit de cache serait un canal temporel : le locataire B mesurerait qu'un
+    texte qu'il soumet a DÉJÀ été soumis par le locataire A. Le gain, lui, vit
+    entièrement à l'intérieur d'une même conversation — le cloisonnement ne
+    coûte donc rien de ce qui a été mesuré.
+    """
+
+    def __init__(self, inner: Detector, max_entries: int = _CACHE_MAX_ENTRIES,
+                 min_chars: int = _CACHE_MIN_CHARS) -> None:
+        self._inner = inner
+        self._max = max_entries
+        self._min_chars = min_chars
+        self._cache: dict[str, list[tuple[str, int, int]]] = {}
+        self.hits = 0
+        self.misses = 0
+
+    def detect(self, text: str) -> list[Entity]:
+        """Détection SANS cloisonnement — réservée aux usages hors requête."""
+        return self._inner.detect(text)
+
+    def scoped(self, scope: str) -> "Detector":
+        """Vue du détecteur cloisonnée à un locataire."""
+        return _ScopedDetector(self, scope)
+
+    def _detect_scoped(self, scope: str, text: str) -> list[Entity]:
+        if len(text) < self._min_chars:
+            return self._inner.detect(text)
+        cle = scope + ":" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+        spans = self._cache.get(cle)
+        if spans is None:
+            self.misses += 1
+            spans = [(e.type, e.start, e.end) for e in self._inner.detect(text)]
+            if len(self._cache) >= self._max:
+                # FIFO : dict conserve l'ordre d'insertion depuis 3.7.
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[cle] = spans
+        else:
+            self.hits += 1
+        return [Entity(t, d, f, text[d:f]) for (t, d, f) in spans]
+
+
+@dataclass(frozen=True)
+class _ScopedDetector:
+    """Détecteur cloisonné : même cache, clés préfixées par le locataire."""
+
+    parent: CachedDetector
+    scope: str
+
+    def detect(self, text: str) -> list[Entity]:
+        return self.parent._detect_scoped(self.scope, text)
 
 
 # --------------------------------------------------------------------------- #
@@ -247,7 +374,22 @@ class Pseudonymizer:
         return token
 
     def pseudonymize(self, text: str) -> str:
-        entities = resolve_overlaps(self.detector.detect(text))
+        return self.apply(text, resolve_overlaps(self.detector.detect(text)))
+
+    def apply(self, text: str, entities: list[Entity]) -> str:
+        """Masque `text` à partir d'entités DÉJÀ détectées et résolues.
+
+        Séparé de `pseudonymize` au §57 pour supprimer la DÉTECTION EN DOUBLE :
+        `main.py` détectait une première fois sur le texte concaténé (pour
+        `assess_risk`), jetait le résultat, puis `pseudonymize` redétectait le
+        même texte slot par slot. Mesuré sur une conversation d'agent de 28
+        complétions : **37,9 s contre 20,5 s**, soit un facteur 1,9 payé pour
+        rien. L'appelant détecte désormais une fois et passe les spans ici.
+
+        `pseudonymize` reste le chemin simple (un texte isolé, un appel) et est
+        maintenant écrit EN TERMES de cette méthode : les deux chemins partagent
+        littéralement le même masquage, ils ne peuvent pas diverger.
+        """
         # Reconstruction de gauche à droite.
         parts: list[str] = []
         cursor = 0

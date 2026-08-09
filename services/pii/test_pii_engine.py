@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 
 from pii_engine import (
+    _CACHE_MIN_CHARS,
+    CachedDetector,
     CompositeDetector,
     Entity,
     Pseudonymizer,
@@ -302,6 +304,162 @@ def test_seuil_relatif_et_marqueurs():
           assess_risk("La cliente, née le 12/03/1978, nous a écrit.", []).looks_sensitive)
 
 
+# Doit depasser _CACHE_MIN_CHARS : sous ce seuil, CachedDetector ne cache RIEN,
+# et un test ecrit trop court passerait A VIDE sans rien prouver — c'est
+# exactement ce qui s'est produit a la premiere ecriture de ces tests.
+_TEXTE_CACHABLE = (
+    "Le patient Amadou Diallo, ne le 12/03/1978, joignable au 77 123 45 67 et "
+    "a amadou.diallo@example.sn, reside a Dakar depuis 2019. Son dossier "
+    "2024-118 comporte une ordonnance ainsi qu'un compte rendu de consultation "
+    "faisant etat d'une acuite reduite, et le traitement a ete reconduit."
+)
+assert len(_TEXTE_CACHABLE) > _CACHE_MIN_CHARS, \
+    "texte de test trop court pour etre mis en cache — le test passerait a vide"
+
+
+class CountingDetector:
+    """Detecteur qui compte ses appels — pour prouver la memoisation."""
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.appels = 0
+
+    def detect(self, text: str) -> list[Entity]:
+        self.appels += 1
+        return self._inner.detect(text)
+
+
+def test_apply_equivaut_a_pseudonymize():
+    """`apply` (entites fournies) doit rendre EXACTEMENT ce que rend
+    `pseudonymize` (entites redetectees). C'est la garantie que la suppression
+    de la passe en double (§57) n'a rien change au texte envoye a l'amont."""
+    texte = ("Amadou Diallo, ne le 12/03/1978, dossier 2024-118, "
+             "tel 77 123 45 67, amadou@example.sn, CB 4539 1488 0343 6467.")
+
+    attendu = _engine(["Amadou Diallo"]).pseudonymize(texte)
+
+    eng = _engine(["Amadou Diallo"])
+    ents = resolve_overlaps(eng.detector.detect(texte))
+    check("apply(entites) == pseudonymize(texte)", eng.apply(texte, ents) == attendu)
+
+    # Et la table de correspondance doit etre la meme des deux cotes.
+    ref = _engine(["Amadou Diallo"])
+    ref.pseudonymize(texte)
+    check("apply produit la meme table de correspondance",
+          set(eng.mapping.values()) == set(ref.mapping.values()))
+
+
+def test_cache_ne_stocke_aucune_surface():
+    """Le cache ne doit contenir que des bornes — jamais une valeur reelle.
+
+    C'est la condition qui rend la memoisation compatible avec la doctrine
+    « rien n'est persiste » (STACK-3 §1) : un vidage memoire du cache ne rend
+    aucune PII."""
+
+
+    texte = _TEXTE_CACHABLE
+    cache = CachedDetector(CompositeDetector([RegexDetector(), FakeNerDetector(["Amadou Diallo"])]))
+    det = cache.scoped("cabinet-a")
+    det.detect(texte)
+
+    brut = repr(cache._cache)
+    fuites = [v for v in ("Amadou Diallo", "77 123 45 67", "amadou.diallo@example.sn",
+                          "2024-118", "12/03/1978") if v in brut]
+    check("le cache ne contient aucune surface", not fuites)
+    check("le cache contient bien des bornes", len(next(iter(cache._cache.values()))) > 0)
+
+
+def test_cache_rend_le_meme_resultat_et_evite_le_recalcul():
+
+
+    texte = _TEXTE_CACHABLE
+    compteur = CountingDetector(
+        CompositeDetector([RegexDetector(), FakeNerDetector(["Amadou Diallo"])]))
+    cache = CachedDetector(compteur)
+    det = cache.scoped("cabinet-a")
+
+    premier = det.detect(texte)
+    second = det.detect(texte)
+    check("2e detection identique a la 1re",
+          [(e.type, e.start, e.end, e.text) for e in premier]
+          == [(e.type, e.start, e.end, e.text) for e in second])
+    check("2e detection sans recalcul", compteur.appels == 1)
+    check("les surfaces sont bien retranchees dans le texte",
+          all(e.text == texte[e.start:e.end] for e in second))
+
+
+def test_cache_cloisonne_par_locataire():
+    """Un hit ne doit JAMAIS traverser deux locataires : sinon le temps de
+    reponse dit au tenant B qu'un texte a deja ete soumis par le tenant A."""
+
+
+    texte = _TEXTE_CACHABLE
+    compteur = CountingDetector(
+        CompositeDetector([RegexDetector(), FakeNerDetector(["Amadou Diallo"])]))
+    cache = CachedDetector(compteur)
+
+    cache.scoped("cabinet-a").detect(texte)
+    cache.scoped("cabinet-b").detect(texte)
+    check("un autre locataire ne beneficie pas du cache", compteur.appels == 2)
+    check("aucun hit entre locataires", cache.hits == 0)
+
+
+def test_cache_ignore_les_textes_courts():
+    """Une empreinte de texte court est attaquable par force brute (un numero
+    senegalais = 10^7 possibilites). Sous le seuil, on ne cache rien."""
+
+
+    compteur = CountingDetector(CompositeDetector([RegexDetector()]))
+    cache = CachedDetector(compteur)
+    det = cache.scoped("cabinet-a")
+    det.detect("77 123 45 67")
+    det.detect("77 123 45 67")
+    check("texte court : jamais mis en cache", cache._cache == {})
+    check("texte court : recalcul a chaque fois", compteur.appels == 2)
+
+
+def test_cache_borne_sa_taille():
+    """VPS SANS SWAP : le cache doit avoir un plafond, pas une croissance libre."""
+
+
+    cache = CachedDetector(CompositeDetector([RegexDetector()]), max_entries=3)
+    det = cache.scoped("cabinet-a")
+    for i in range(10):
+        det.detect(f"Texte numero {i} " + "de remplissage sans identifiant. " * 8)
+    check("le cache reste borne", len(cache._cache) <= 3)
+
+
+def test_identifiants_encodes_en_json():
+    """Un identifiant ancre sur mot-cle doit etre vu MEME encode en JSON.
+
+    Regression du §57 : Hermes est un agent, sa charge utile vit dans
+    `tool_calls[].function.arguments`, soit `"reference": "2024-118"`. Les
+    motifs ne connaissaient que la prose et laissaient passer le numero de
+    dossier ET le numero de CNI — ce dernier etant pourtant en SUPPRESSION
+    PURE."""
+    det = RegexDetector()
+
+    def types(t: str) -> set[str]:
+        return {e.type for e in det.detect(t)}
+
+    check("dossier en prose (inchange)", "DOSSIER" in types("le dossier 2024-118 est ouvert"))
+    check("dossier avec deux-points (inchange)", "DOSSIER" in types("reference : 2024-118"))
+    check("dossier en JSON (guillemets doubles)",
+          "DOSSIER" in types('{"reference": "2024-118", "client": "X"}'))
+    check("dossier en JSON compact", "DOSSIER" in types('{"dossier":"2024-118"}'))
+    check("dossier en guillemets simples", "DOSSIER" in types("{'ref': '2024-118'}"))
+    check("CNI en prose (inchange)", "CNI" in types("CNI 1234567890123"))
+    check("CNI en JSON", "CNI" in types('{"cni": "1234567890123"}'))
+
+    # Le masquage doit reellement retirer la valeur du corps sortant.
+    corps = '{"reference": "2024-118", "cni": "1234567890123"}'
+    sortie = _engine().pseudonymize(corps)
+    check("le dossier JSON ne sort plus en clair", "2024-118" not in sortie)
+    check("la CNI JSON ne sort plus en clair", "1234567890123" not in sortie)
+    check("la CNI reste non restaurable",
+          "1234567890123" not in _engine().restore(sortie))
+
+
 def main() -> int:
     test_reversible_roundtrip()
     test_redaction_is_not_restorable()
@@ -314,6 +472,13 @@ def main() -> int:
     test_restore_deep()
     test_faux_positifs_ner()
     test_seuil_relatif_et_marqueurs()
+    test_apply_equivaut_a_pseudonymize()
+    test_cache_ne_stocke_aucune_surface()
+    test_cache_rend_le_meme_resultat_et_evite_le_recalcul()
+    test_cache_cloisonne_par_locataire()
+    test_cache_ignore_les_textes_courts()
+    test_cache_borne_sa_taille()
+    test_identifiants_encodes_en_json()
     print(f"\n===== {_PASS} ok, {_FAIL} FAIL =====")
     return 1 if _FAIL else 0
 
