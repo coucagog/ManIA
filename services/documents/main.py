@@ -120,10 +120,77 @@ async def health():
     }
 
 
+# Barrière réseau de LibreOffice (STACK-4 §57, pt 18).
+#
+# soffice résout les références externes À L'IMPORT du document : <img src="http://…">
+# en HTML, images liées et INCLUDEPICTURE en docx, WEBSERVICE() en Calc. Or le document
+# est écrit par l'agent du locataire. MESURÉ en production : un HTML fabriqué par un
+# agent sur réseau FERMÉ a déclenché OPTIONS + HEAD + GET vers l'adresse de son choix,
+# émis depuis l'interface `web` de ce conteneur — c'est-à-dire PAR-DESSUS la barrière
+# egress du §56, sans qu'aucune règle réseau ne soit violée et sans aucune trace côté
+# proxy PII. La donnée sort dans la query string. Le vecteur n'est pas « l'agent devient
+# malveillant » : c'est l'injection par document, et un agent lit les fichiers de son
+# client.
+#
+# Aucune conversion légitime n'a besoin du réseau : /v1/convert reçoit un fichier
+# complet, /v1/fill remplit en local (docxtpl / openpyxl / python-pptx). On ne retire
+# donc pas une fonctionnalité, on retire une capacité qui n'a jamais servi.
+#
+# Deux couches, volontairement redondantes et toutes deux STRUCTURELLES (pas des listes
+# de motifs à tenir à jour — le §54 a établi que c'est là que ce service se plante) :
+#   1. LinkUpdateMode = 0 : ne jamais mettre à jour un lien, quel qu'il soit ;
+#   2. proxy HTTP/HTTPS/FTP forcé sur 127.0.0.1:1 : la pile réseau de LibreOffice
+#      elle-même en deny-by-default. Cette couche-ci ne dépend pas de la connaissance
+#      exacte de l'arbre de registre — ce qui passe par le réseau meurt, point.
+#      127.0.0.1:1 refuse la connexion immédiatement : pas d'attente, pas de timeout.
+_XCU_SANS_RESEAU = """<?xml version="1.0" encoding="UTF-8"?>
+<oor:items xmlns:oor="http://openoffice.org/2001/registry"
+           xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <item oor:path="/org.openoffice.Office.Common/Security/Scripting">
+    <prop oor:name="LinkUpdateMode" oor:op="fuse"><value>0</value></prop>
+  </item>
+  <item oor:path="/org.openoffice.Office.Calc/Content/Update">
+    <prop oor:name="Link" oor:op="fuse"><value>0</value></prop>
+  </item>
+  <item oor:path="/org.openoffice.Office.Writer/Content/Update">
+    <prop oor:name="Link" oor:op="fuse"><value>0</value></prop>
+  </item>
+  <item oor:path="/org.openoffice.Inet/Settings">
+    <prop oor:name="ooInetProxyType" oor:op="fuse"><value>1</value></prop>
+    <prop oor:name="ooInetHTTPProxyName" oor:op="fuse"><value>127.0.0.1</value></prop>
+    <prop oor:name="ooInetHTTPProxyPort" oor:op="fuse"><value>1</value></prop>
+    <prop oor:name="ooInetHTTPSProxyName" oor:op="fuse"><value>127.0.0.1</value></prop>
+    <prop oor:name="ooInetHTTPSProxyPort" oor:op="fuse"><value>1</value></prop>
+    <prop oor:name="ooInetFTPProxyName" oor:op="fuse"><value>127.0.0.1</value></prop>
+    <prop oor:name="ooInetFTPProxyPort" oor:op="fuse"><value>1</value></prop>
+    <prop oor:name="ooInetNoProxy" oor:op="fuse"><value></value></prop>
+  </item>
+</oor:items>
+"""
+
+
+def _profil_sans_reseau(profile: Path) -> None:
+    """Écrit les réglages AVANT que soffice ne bootstrape son profil.
+
+    Le profil est neuf à chaque requête (`mkdtemp`) : si on ne l'écrit pas ici,
+    soffice le crée vide et part avec les défauts. `oor:op="fuse"` fusionne les
+    valeurs sans exiger que la clé préexiste.
+
+    Aucune capture d'exception : un échec d'écriture signifie que le dossier de
+    travail est inutilisable, et la conversion doit alors échouer plutôt que de
+    tourner sans barrière. Fail-closed, comme le reste du dispositif.
+    """
+    user = profile / "user"
+    user.mkdir(parents=True, exist_ok=True)
+    (user / "registrymodifications.xcu").write_text(_XCU_SANS_RESEAU, encoding="utf-8")
+
+
 def _run_soffice(workdir: str, in_path: str, fmt: str) -> str:
     profile = Path(workdir) / "profile"
     outdir = Path(workdir) / "out"
     outdir.mkdir(parents=True, exist_ok=True)
+    _profil_sans_reseau(profile)
     proc = subprocess.run(
         [
             SOFFICE_BIN,
