@@ -912,17 +912,6 @@ select.f-in { appearance: none; cursor: pointer; }
 .adm-input--court { flex: 0 0 150px; }
 .adm-input:focus { box-shadow: var(--neo-i), inset 0 0 0 1.5px var(--coral); }
 
-/* ── Case « forcer la pseudonymisation » (ProvisionPanel) ──
-   `.adm-provision` n'a pas de règle : le champ et le bouton sont des
-   inline-block côte à côte. Le label passe donc en flex (donc en bloc) pour
-   occuper sa propre ligne — la mise en garde doit se lire avant le clic. */
-.adm-pii {
-  display: flex; gap: 8px; align-items: flex-start; max-width: 62ch;
-  margin-top: 10px; font-size: 12.5px; line-height: 1.5; cursor: pointer;
-}
-.adm-pii input { margin-top: 2px; accent-color: var(--coral); cursor: pointer; }
-.adm-pii em { display: block; font-style: normal; color: var(--muted); font-size: 11.5px; }
-
 .adm-aide {
   margin-top: 14px; padding: 12px 14px; border-radius: var(--r-sm);
   background: rgba(240,140,106,.07); font-size: 12.5px; line-height: 1.6;
