@@ -57,10 +57,13 @@ export default function MentionsLegalesPage() {
       <section className="legal-sec" id="hebergement">
         <h2><span className="num">03</span>Hébergement</h2>
         <p>
-          Le site est hébergé sur des serveurs opérés par <strong>OVH</strong> (OVH SAS,
-          2 rue Kellermann, 59100 Roubaix, France). Les données applicatives sont
-          traitées conformément à la <strong>loi n°2008-12</strong> du 25 janvier 2008
-          portant sur la protection des données à caractère personnel au Sénégal.
+          Le site et les espaces clients hébergés sont installés sur des serveurs
+          opérés par <strong>OVH</strong> (OVH SAS, 2 rue Kellermann, 59100 Roubaix,
+          France), <strong>physiquement situés au Canada</strong>. Les données
+          applicatives sont traitées conformément à la <strong>loi n°2008-12</strong> du
+          25 janvier 2008 portant sur la protection des données à caractère personnel au
+          Sénégal. Les clients qui souhaitent que leurs données ne quittent pas leurs
+          locaux disposent d&apos;une installation sur leur propre infrastructure.
         </p>
       </section>
 

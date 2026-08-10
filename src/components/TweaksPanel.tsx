@@ -18,6 +18,50 @@ const DEFAULTS: TweakState = {
   theme:'light', topbar:'normal',
 }
 
+// Clé de stockage de l'ensemble des réglages.
+// ⚠️ NE PAS confondre avec la clé `theme`, qui reste séparée : elle est lue par
+//    ThemeToggle ET par le script anti-FOUC de layout.tsx, lequel s'exécute
+//    AVANT le premier rendu. Les deux doivent rester d'accord.
+const CLE = 'mania-tweaks'
+
+/** Nom du préréglage de fond correspondant, sinon chaîne vide (réglage libre). */
+function presetDe(bgH: number, bgL: number): string {
+  const P: Record<string, [number, number]> = {
+    cream:[30,94], pearl:[220,96], white:[0,99], lavender:[260,95],
+  }
+  for (const [nom, [h, l]] of Object.entries(P)) if (h === bgH && l === bgL) return nom
+  return ''
+}
+
+/**
+ * Relit les réglages stockés et les fond dans DEFAULTS.
+ * Tolérant par construction : une clé absente, inconnue ou d'un type inattendu
+ * est ignorée. Un stockage corrompu ne doit jamais casser l'affichage du site.
+ */
+function charger(): TweakState {
+  if (typeof window === 'undefined') return { ...DEFAULTS }
+  const t = { ...DEFAULTS }
+  let themeStocke = false
+  try {
+    const brut = JSON.parse(localStorage.getItem(CLE) || '{}') as Record<string, unknown>
+    for (const k of Object.keys(DEFAULTS) as (keyof TweakState)[]) {
+      if (typeof brut[k] === typeof DEFAULTS[k]) {
+        ;(t as Record<string, unknown>)[k] = brut[k]
+        if (k === 'theme') themeStocke = true
+      }
+    }
+  } catch { /* stockage illisible : on garde les défauts */ }
+  // Si le panneau n'a rien enregistré, la clé `theme` fait foi : elle peut
+  // avoir été posée par ThemeToggle, qui ignore tout de ce panneau.
+  if (!themeStocke) {
+    try {
+      const th = localStorage.getItem('theme')
+      if (th === 'dark' || th === 'light') t.theme = th
+    } catch { /* ignoré */ }
+  }
+  return t
+}
+
 const FS: Record<string, string> = {
   serif: "'Iowan Old Style','Charter',Georgia,serif",
   sans: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif",
@@ -28,7 +72,11 @@ function applyTweaks(t: TweakState) {
   const r = document.documentElement
   const dark = t.theme === 'dark' || (t.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   r.dataset.theme = dark ? 'dark' : ''
-  if (t.theme !== 'system') localStorage.setItem('theme', t.theme)
+  // 🔴 On stocke la valeur RÉSOLUE, jamais 'system' : le script anti-FOUC de
+  //    layout.tsx relit cette clé avant le premier rendu et ne sait pas
+  //    interpréter 'system'. Sans ça, un système en sombre afficherait un
+  //    éclair de clair à chaque chargement.
+  try { localStorage.setItem('theme', dark ? 'dark' : 'light') } catch { /* ignoré */ }
 
   const acc = `hsl(${t.accentH},${t.accentS}%,${t.accentL}%)`
   const accD = `hsl(${t.accentH},${t.accentS}%,${Math.max(20, t.accentL - 14)}%)`
@@ -116,6 +164,35 @@ export default function TweaksPanel() {
 
   // T is a ref — mutations never trigger re-renders, so sliders drag smoothly
   const T = useRef<TweakState>({ ...DEFAULTS })
+  const panneau = useRef<HTMLDivElement>(null)
+  const declencheur = useRef<HTMLButtonElement>(null)
+
+  // Instantané des valeurs servant de position INITIALE aux curseurs.
+  // ⚠️ En ÉTAT et non en ref : `T` est muté à chaque pixel de glissement et le
+  //    lire pendant le rendu enfreint react-hooks/refs. Cet instantané ne
+  //    change qu'aux moments où les curseurs doivent effectivement se
+  //    repositionner — restauration, préréglage de fond, réinitialisation.
+  const [base, setBase] = useState<TweakState>({ ...DEFAULTS })
+
+  // Fermeture au clic extérieur et à Échap.
+  // ⚠️ On écoute `mousedown` et non `click` : les curseurs terminent souvent
+  //    leur glissement hors du panneau, et un `click` relâché à l'extérieur
+  //    refermerait le ruban en plein réglage.
+  useEffect(() => {
+    if (!open) return
+    const auClic = (e: MouseEvent) => {
+      const c = e.target as Node
+      if (panneau.current?.contains(c) || declencheur.current?.contains(c)) return
+      setOpen(false)
+    }
+    const auClavier = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', auClic)
+    document.addEventListener('keydown', auClavier)
+    return () => {
+      document.removeEventListener('mousedown', auClic)
+      document.removeEventListener('keydown', auClavier)
+    }
+  }, [open])
 
   // Radio/display state (needs re-render to show selected state)
   const [radios, setRadios] = useState({
@@ -131,17 +208,44 @@ export default function TweaksPanel() {
     `linear-gradient(90deg,hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${Math.max(20,DEFAULTS.accentL-14)}%),hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${DEFAULTS.accentL}%),hsl(${DEFAULTS.accentH},${DEFAULTS.accentS}%,${Math.min(88,DEFAULTS.accentL+14)}%))`
   )
 
-  useEffect(() => { applyTweaks(T.current) }, [])
+  // Restauration au montage. On part de DEFAULTS au premier rendu (identique
+  // côté serveur), puis on applique le stockage ici : lire localStorage pendant
+  // le rendu provoquerait une divergence d'hydratation.
+  useEffect(() => {
+    const t = charger()
+    T.current = t
+    setBase(t)
+    applyTweaks(t)
+    setRadios({
+      accentBudget: t.accentBudget, fontDisplay: t.fontDisplay, fontBody: t.fontBody,
+      borderW: t.borderW, theme: t.theme, topbar: t.topbar,
+      bgPreset: presetDe(t.bgH, t.bgL),
+    })
+    setAccentPreview(`linear-gradient(90deg,hsl(${t.accentH},${t.accentS}%,${Math.max(20,t.accentL-14)}%),hsl(${t.accentH},${t.accentS}%,${t.accentL}%),hsl(${t.accentH},${t.accentS}%,${Math.min(88,t.accentL+14)}%))`)
+    setResetKey(k => k + 1) // remonte les curseurs sur les valeurs restaurées
+  }, [])
+
+  // Écriture différée : un glissement de curseur déclenche `set` à chaque
+  // pixel ; sérialiser à chaque fois saccaderait le geste.
+  const minuteur = useRef<number | null>(null)
+  const persister = useCallback(() => {
+    if (minuteur.current) clearTimeout(minuteur.current)
+    minuteur.current = window.setTimeout(() => {
+      try { localStorage.setItem(CLE, JSON.stringify(T.current)) } catch { /* quota ou mode privé */ }
+    }, 200)
+  }, [])
 
   function set<K extends keyof TweakState>(key: K, val: TweakState[K]) {
     T.current[key] = val
     applyTweaks(T.current)
+    persister()
   }
 
   function setRadio<K extends keyof typeof radios>(key: K, val: string) {
     setRadios(r => ({ ...r, [key]: val }))
     ;(T.current as Record<string, unknown>)[key] = val
     applyTweaks(T.current)
+    persister()
   }
 
   function updateAccentPreview() {
@@ -156,17 +260,23 @@ export default function TweaksPanel() {
     if (!P[p]) return
     T.current.bgH = P[p].bgH
     T.current.bgL = P[p].bgL
+    setBase({ ...T.current })
     setRadios(r => ({ ...r, bgPreset: p }))
     setResetKey(k => k + 1) // force re-mount sliders with new defaultValues
     applyTweaks(T.current)
+    persister()
   }
 
   const reset = useCallback(() => {
     T.current = { ...DEFAULTS }
+    setBase({ ...DEFAULTS })
     setRadios({ accentBudget:'moderate', fontDisplay:'serif', fontBody:'sans', borderW:'hairline', theme:'light', topbar:'normal', bgPreset:'cream' })
     setAccentPreview(`linear-gradient(90deg,hsl(19,83%,54%),hsl(19,83%,68%),hsl(19,83%,82%))`)
     setResetKey(k => k + 1)
     applyTweaks(T.current)
+    // « Réinitialiser » doit aussi effacer le stockage : sinon les anciens
+    // réglages reviendraient au prochain chargement.
+    try { localStorage.removeItem(CLE) } catch { /* ignoré */ }
   }, [])
 
   function copyCSSVars() {
@@ -176,12 +286,21 @@ export default function TweaksPanel() {
     navigator.clipboard.writeText(css).catch(() => alert(css))
   }
 
-  const D = DEFAULTS
+  // Les curseurs lisent `init={D.…}` comme valeur par défaut NON contrôlée.
+  // En pointant D sur l'instantané `base` plutôt que sur DEFAULTS, ils se
+  // repositionnent après une restauration ET après un préréglage de fond —
+  // ce dernier était silencieusement cassé.
+  const D = base
 
   return (
     <>
-      <button id="tw-trigger" onClick={() => setOpen(o => !o)} title="Tweaks design">⚙</button>
-      <div id="tw-panel" className={open ? 'open' : ''}>
+      <button
+        id="tw-trigger" ref={declencheur}
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open} aria-controls="tw-panel"
+        title="Réglages d'affichage"
+      >⚙</button>
+      <div id="tw-panel" ref={panneau} className={open ? 'open' : ''}>
         <div className="tw-head">
           <span className="tw-title">Tweaks</span>
           <button className="tw-reset" onClick={reset}>Réinitialiser</button>
@@ -218,9 +337,9 @@ export default function TweaksPanel() {
           <div className="tw-section">
             <div className="tw-sec-hd">Fond &amp; Surfaces</div>
             <div className="tw-sec-body">
-              <Slider label="Chaleur" min={0} max={80} init={T.current.bgH} fmt={v => `${v}°`}
+              <Slider label="Chaleur" min={0} max={80} init={D.bgH} fmt={v => `${v}°`}
                 onInput={v => set('bgH', v)} />
-              <Slider label="Luminosité fond" min={84} max={99} init={T.current.bgL} fmt={v => `${v}%`}
+              <Slider label="Luminosité fond" min={84} max={99} init={D.bgL} fmt={v => `${v}%`}
                 onInput={v => set('bgL', v)} />
               <div className="tw-row">
                 <div className="tw-lbl">Preset</div>

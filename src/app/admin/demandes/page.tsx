@@ -13,6 +13,7 @@ import {
   supprimerDemande,
 } from '@/app/actions/demandes'
 import { LIB_SECTEUR } from '@/lib/secteurs'
+import { LIB_OFFRE, offreASignaler } from '@/lib/offres'
 import { ProvisionPanel } from '@/components/ProvisionPanel'
 import { DeprovisionButton } from '@/components/DeprovisionButton'
 
@@ -103,6 +104,7 @@ export default async function AdminDemandesPage({
                 <a href={`mailto:${d.email}`}>{d.email}</a>
                 {d.telephone && <> · {d.telephone}</>}
                 {' · '}{LIB_SECTEUR[d.secteur] ?? d.secteur}
+                {' · '}{d.offre ? (LIB_OFFRE[d.offre] ?? d.offre) : 'offre non choisie'}
                 {' · '}{dateFr(d.createdAt)}
               </div>
             </div>
@@ -110,6 +112,16 @@ export default async function AdminDemandesPage({
               {LIB_STATUT[d.statut] ?? d.statut}
             </span>
           </header>
+
+          {/* 🔴 Métier à secret professionnel sur un palier hébergé : la
+              candidature est acceptée mais demande un rappel avant tout
+              provisionnement (décision d'exclusion, STACK-5 §50). */}
+          {offreASignaler(d.secteur, d.offre) && (
+            <p className="adm-alerte-sp">
+              Secteur à secret professionnel sur une offre hébergée — rappeler avant
+              provisionnement. Seule la stack locale est ouverte à ce métier.
+            </p>
+          )}
 
           <p className="adm-besoin">{d.besoin}</p>
 

@@ -6,6 +6,7 @@ import { verifySession } from '@/lib/session'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { SECTEUR_SLUGS } from '@/lib/secteurs'
+import { OFFRE_CODES } from '@/lib/offres'
 
 // Reprend exactement la convention de admin.ts
 async function requireAdmin() {
@@ -40,6 +41,9 @@ export async function creerDemande(
   const telephone = ((formData.get('telephone') as string) || '').trim() || null
   const organisation = ((formData.get('organisation') as string) || '').trim() || null
   const secteur = ((formData.get('secteur') as string) || 'autre').trim()
+  // L'offre est FACULTATIVE : « je ne sais pas encore » est une réponse
+  // légitime, et refuser une candidature faute de palier choisi serait absurde.
+  const offre = ((formData.get('offre') as string) || '').trim() || null
   const besoin = ((formData.get('besoin') as string) || '').trim()
   const consent = formData.get('consentement')
 
@@ -55,6 +59,17 @@ export async function creerDemande(
   if (!SECTEUR_SLUGS.includes(secteur)) {
     return { error: 'Secteur invalide.' }
   }
+  // ⚠️ Même piège que le secteur (§26) : si le <select> proposait un code
+  //    absent de OFFRE_CODES, la candidature serait rejetée en silence. Les
+  //    deux dérivent du MÊME fichier src/lib/offres.ts, donc c'est impossible
+  //    par construction — cette garde protège des envois forgés, pas de nous.
+  if (offre !== null && !OFFRE_CODES.includes(offre)) {
+    return { error: 'Offre invalide.' }
+  }
+  // 🔴 On ne rejette JAMAIS sur le couple (secteur, offre) : un métier à secret
+  //    professionnel qui demande un palier hébergé est signalé à l'admin, et
+  //    rappelé. Le refuser ici ferait perdre un prospect que la stack locale
+  //    sert parfaitement.
   // Le consentement est OBLIGATOIRE et sa date est enregistrée (loi 2008-12).
   if (!consent) {
     return { error: 'Le consentement au traitement des données est requis.' }
@@ -73,7 +88,7 @@ export async function creerDemande(
 
   await prisma.demandeAgent.create({
     data: {
-      nom, email, telephone, organisation, secteur, besoin,
+      nom, email, telephone, organisation, secteur, offre, besoin,
       consentement: new Date(),
     },
   })

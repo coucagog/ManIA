@@ -47,17 +47,29 @@ export default function ConfidentialitePage() {
 
       <h2>Traitement par des services d&apos;intelligence artificielle</h2>
       <p>
-        Le fonctionnement d&apos;un agent suppose l&apos;envoi de vos requêtes à un
-        fournisseur de modèle de langage, qui peut être situé hors du Sénégal. Vous
-        fournissez et contrôlez votre propre clé d&apos;accès à ce fournisseur.
+        <strong>Offres hébergées.</strong> Le fonctionnement d&apos;un agent suppose
+        l&apos;envoi de vos requêtes à un fournisseur de modèle de langage, qui peut être
+        situé hors du Sénégal. Sur ces offres, l&apos;accès au fournisseur est inclus dans
+        votre abonnement : il est souscrit par MANIA pour votre compte. Si vous préférez
+        utiliser votre propre abonnement, c&apos;est possible — vous en gardez alors
+        l&apos;entière maîtrise.
+      </p>
+      <p>
+        <strong>Stack locale.</strong>{' '}
+        Lorsque le modèle est installé sur votre propre
+        matériel, vos contenus ne sont envoyés à aucun fournisseur d&apos;intelligence
+        artificielle : le traitement a lieu chez vous. L&apos;agent conserve toutefois
+        d&apos;autres accès réseau (navigation, messagerie) selon la configuration
+        retenue avec vous.
       </p>
       <p>
         <strong>Données couvertes par le secret professionnel.</strong> En l&apos;état,
-        la plateforme n&apos;est pas ouverte au traitement de données identifiantes
-        relevant du secret professionnel — dossiers de vos clients ou de vos patients,
-        les données de santé étant le cas le plus strictement encadré. Pour ces usages,
-        les mesures techniques nécessaires et, le cas échéant, l&apos;autorisation
-        préalable de la CDP sont mises en place avec vous avant toute mise en service.
+        <strong> les offres hébergées</strong> ne sont pas ouvertes au traitement de
+        données identifiantes relevant du secret professionnel — dossiers de vos clients
+        ou de vos patients, les données de santé étant le cas le plus strictement
+        encadré. Ces usages relèvent aujourd&apos;hui de la stack locale, et les mesures
+        techniques nécessaires ainsi que, le cas échéant, l&apos;autorisation préalable
+        de la CDP sont mises en place avec vous avant toute mise en service.
       </p>
 
       <h2>Durée de conservation</h2>

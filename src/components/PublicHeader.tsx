@@ -4,6 +4,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import UserMenu from '@/components/UserMenu'
+import { logout } from '@/app/actions/auth'
 
 type PublicUser = { name: string; initials: string; photoUrl: string | null } | null
 
@@ -16,9 +18,13 @@ export default function PublicHeader({ user }: { user: PublicUser }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+  // « Agent IA » couvre la page produit ET l'étape de candidature : l'onglet
+  // reste allumé pendant que le visiteur remplit le formulaire, pour qu'il
+  // sache où il se trouve dans le parcours.
+  const isActiveAny = (...hrefs: string[]) => hrefs.some(isActive)
   const close = () => setOpen(false)
-  const firstName = user?.name.split(' ')[0]
-
+  // ℹ️ Le prénom n'est plus calculé ici : UserMenu s'en charge côté bureau, et
+  //    le panneau mobile affiche le nom complet.
   const avatarInner = user?.photoUrl
     // eslint-disable-next-line @next/next/no-img-element
     ? <img src={user.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -33,7 +39,7 @@ export default function PublicHeader({ user }: { user: PublicUser }) {
 
         {/* Nav desktop */}
         <nav className="pub-hd-nav">
-          <Link href="/candidature" className={`pub-hd-item${isActive('/candidature') ? ' is-active' : ''}`}>
+          <Link href="/agent-ia" className={`pub-hd-item${isActiveAny('/agent-ia', '/candidature') ? ' is-active' : ''}`}>
             <span className="pub-hd-ico pub-hd-ico--coral" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="6" y="6" width="12" height="12" rx="3" />
@@ -59,23 +65,9 @@ export default function PublicHeader({ user }: { user: PublicUser }) {
           <span className="pub-hd-sep" aria-hidden="true" />
 
           {user ? (
-            <Link href="/dashboard" style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '3px 12px 3px 3px',
-              background: 'var(--inset)', border: '1px solid var(--border)',
-              borderRadius: '999px', textDecoration: 'none', color: 'var(--fg)',
-              fontSize: '13px', fontWeight: 500,
-            }}>
-              <div className="avatar" style={{
-                width: '28px', height: '28px', fontSize: '11px', flexShrink: 0,
-                ...(user.photoUrl ? { padding: 0, overflow: 'hidden' } : {}),
-              }}>
-                {avatarInner}
-              </div>
-              <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {firstName}
-              </span>
-            </Link>
+            // La pastille devient le déclencheur d'un menu (Tableau de bord ·
+            // Mon profil · Se déconnecter). Son habillage est inchangé.
+            <UserMenu name={user.name} initials={user.initials} photoUrl={user.photoUrl} />
           ) : (
             <Link href="/login" className="pub-hd-cta">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -106,14 +98,14 @@ export default function PublicHeader({ user }: { user: PublicUser }) {
       {/* Panneau mobile */}
       {open && (
         <div className="pub-hd-panel">
-          <Link href="/candidature" className="pub-hd-pitem" onClick={close}>
+          <Link href="/agent-ia" className="pub-hd-pitem" onClick={close}>
             <span className="pub-hd-ico pub-hd-ico--coral" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="6" y="6" width="12" height="12" rx="3" />
                 <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
               </svg>
             </span>
-            <span className="pub-hd-lbl">Agent IA<span className="pub-hd-sub">Agents métier configurés pour votre activité</span></span>
+            <span className="pub-hd-lbl">Agent IA<span className="pub-hd-sub">Agents métier, offres et tarifs</span></span>
           </Link>
 
           <Link href="/formation" className="pub-hd-pitem" onClick={close}>
@@ -130,16 +122,26 @@ export default function PublicHeader({ user }: { user: PublicUser }) {
           <Link href="/blog" className="pub-hd-pblog" onClick={close}>Blog</Link>
 
           {user ? (
-            <Link href="/dashboard" className="pub-hd-pitem" onClick={close}>
-              <span
-                className="avatar"
-                aria-hidden="true"
-                style={user.photoUrl ? { padding: 0, overflow: 'hidden' } : undefined}
-              >
-                {avatarInner}
-              </span>
-              <span className="pub-hd-lbl">Mon espace<span className="pub-hd-sub">{user.name}</span></span>
-            </Link>
+            // Sur mobile, pas de déroulante : le panneau est déjà un menu, on
+            // y déplie les entrées à plat plutôt que d'imbriquer un second cran.
+            <>
+              <Link href="/dashboard" className="pub-hd-pitem" onClick={close}>
+                <span
+                  className="avatar"
+                  aria-hidden="true"
+                  style={user.photoUrl ? { padding: 0, overflow: 'hidden' } : undefined}
+                >
+                  {avatarInner}
+                </span>
+                <span className="pub-hd-lbl">Tableau de bord<span className="pub-hd-sub">{user.name}</span></span>
+              </Link>
+              <Link href="/profil" className="pub-hd-pblog" onClick={close}>Mon profil</Link>
+              <form action={logout}>
+                <button type="submit" className="pub-hd-pblog" style={{ width: '100%', border: 'none', background: 'none', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                  Se déconnecter
+                </button>
+              </form>
+            </>
           ) : (
             <Link href="/login" className="pub-hd-cta pub-hd-cta--full" onClick={close}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

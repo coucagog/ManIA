@@ -178,6 +178,7 @@ model Tenant {
   slug        String    @unique   // sous-domaine : <slug>.mania.sn
   name        String              // "Cabinet Dr Diop"
   pack        String    @default("generique")  // pack vertical : ophtalmo | generique | ...
+  offre       String?             // palier commercial (cf. src/lib/offres.ts) ; null = antérieur à la grille
   status      String    @default("active")     // active | trial | suspended
   trialEndsAt DateTime?
   createdAt   DateTime  @default(now())
@@ -249,6 +250,7 @@ model DemandeAgent {
   telephone    String?
   organisation String?
   secteur      String    @default("autre")     // ophtalmo | optique | sante | autre
+  offre        String?                         // palier demandé ; null = pas encore choisi (cf. src/lib/offres.ts)
   besoin       String                          // texte libre du prospect
   statut       String    @default("nouvelle")  // nouvelle | qualifiee | acceptee | refusee
   consentement DateTime                        // horodatage du consentement (loi 2008-12)

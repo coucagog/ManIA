@@ -173,6 +173,10 @@ html, body {
 .cand-reassure h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 18px; line-height: 1.25; color: var(--fg); }
 .cand-reassure p { margin: 7px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
 .cand-form-card { background: var(--surface); border-radius: var(--r); padding: 30px 30px 26px; box-shadow: var(--neo-r); }
+/* Aide et avis sous le selecteur d offre (page candidature). */
+.cand-hint { margin: -2px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+.cand-avis { margin: 2px 0 0; padding: 12px 14px; border-radius: var(--r-sm); font-size: 13px; line-height: 1.55; color: var(--fg); background: var(--inset); box-shadow: var(--neo-i-sm); border-left: 3px solid var(--coral); }
+.cand-avis strong { font-weight: 600; }
 @media (max-width: 760px) {
   .cand-grid { grid-template-columns: 1fr; }
   .cand-h1 { font-size: 32px; }
@@ -884,6 +888,7 @@ select.f-in { appearance: none; cursor: pointer; }
 .adm-badge--qualifiee { background: rgba(201,162,39,.15);  color: #A8861F; }
 .adm-badge--acceptee  { background: rgba(76,149,108,.15);  color: #3E7A58; }
 
+.adm-alerte-sp { margin: 12px 0 0; padding: 10px 13px; border-radius: var(--r-sm); font-size: 13px; line-height: 1.5; color: var(--fg); background: rgba(240,140,106,.13); border-left: 3px solid var(--coral); }
 .adm-besoin {
   font-size: 14px; line-height: 1.6; margin: 14px 0 10px;
   white-space: pre-wrap;   /* conserve les retours à la ligne du prospect */
@@ -1045,7 +1050,7 @@ select.f-in { appearance: none; cursor: pointer; }
 .fp-search { max-width: 420px; }
 .fp-chiprow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fp-chiplbl { flex: none; width: 70px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
-.pchip { padding: 8px 15px; border: none; cursor: pointer; font-family: var(--sans); font-size: 13px; border-radius: 999px; background: var(--surface); color: var(--fg); box-shadow: var(--neo-r-sm); transition: box-shadow .15s ease, color .15s ease; white-space: nowrap; }
+.pchip { padding: 8px 15px; border: none; cursor: pointer; font-family: var(--sans); font-size: 13px; border-radius: 999px; background: var(--surface); color: var(--fg); box-shadow: var(--neo-r-sm); transition: box-shadow .15s ease, color .15s ease; white-space: nowrap; text-decoration: none; }
 .pchip:hover { color: var(--coral); }
 .pchip.is-active { background: var(--bg); box-shadow: var(--neo-i-sm); color: var(--coral); font-weight: 600; }
 
@@ -1205,3 +1210,146 @@ select.f-in { appearance: none; cursor: pointer; }
 .legal-sec h2 { display: flex; align-items: baseline; gap: 13px; margin: 0 0 14px; }
 .legal-sec h2 .num { font-family: ui-monospace, Menlo, monospace; font-size: 14px; color: var(--coral); }
 .legal-sec p, .legal-sec li { font-size: 16px; line-height: 1.7; }
+/* ═══ Page publique Offres (.off-*) ══════════════════════════════════════
+   Reutilise : .land-section, .land-eyebrow, .land-h2, les blocs .land-trust
+   et .land-cta, .btn-cta-sm et .btn-soft-sm. On n ajoute que le nouveau.
+   Aucune couleur en dur pour fonds et textes — tout passe par les variables,
+   sinon le thème sombre casse. */
+.off-h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 5.4vw, 44px); line-height: 1.12; letter-spacing: -.02em; color: var(--fg); max-width: 20ch; }
+.off-lead { margin: 18px 0 0; font-size: 16.5px; line-height: 1.65; color: var(--muted); max-width: 62ch; }
+.off-lead--tight { margin-top: 14px; }
+.off-lead strong { color: var(--fg); font-weight: 600; }
+
+.off-promo { display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; margin-top: 30px; padding: 18px 22px; border-radius: var(--r); background: var(--surface); box-shadow: var(--neo-r-sm); border-left: 4px solid var(--coral); }
+.off-promo-tag { font-size: 11.5px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--coral); flex: 0 0 auto; }
+.off-promo p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--fg); }
+.off-promo-note { color: var(--muted); }
+
+/* Les 4 paliers tiennent sur UNE ligne dès que la fenêtre le permet, puis
+   passent à 2 colonnes, puis à 1. Le pas intermédiaire est indispensable :
+   sans lui, 4 cartes se retrouveraient écrasées à ~200 px entre 860 et
+   1140 px. */
+.off-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: stretch; }
+/* ⚠️ Filet indispensable : `1fr` a un minimum implicite de `auto`, et les prix
+   sont écrits avec des espaces INSÉCABLES (« 135 000 FCFA » ne se coupe pas).
+   Sans `min-width: 0`, ce bloc insécable pourrait élargir sa colonne et faire
+   déborder toute la ligne horizontalement. */
+.off-grid > * { min-width: 0; }
+.off-card { position: relative; overflow: hidden; display: flex; flex-direction: column; background: var(--surface); border-radius: 24px; padding: 26px 22px; box-shadow: var(--neo-r); }
+.off-accent { position: absolute; left: 0; top: 28px; bottom: 28px; width: 5px; border-radius: 0 4px 4px 0; }
+.off-accent--coral { background: var(--coral); }
+.off-accent--fg { background: var(--fg); }
+
+/* Libelle de mise en avant. Reserve sur TOUTES les cartes (voir le
+   commentaire du JSX) : seule la carte mise en avant le rend visible. */
+.off-tag { margin: 0 0 9px; min-height: 20px; display: inline-flex; align-items: center; align-self: flex-start; padding: 3px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; visibility: hidden; }
+.off-tag--on { visibility: visible; background: var(--coral); color: #fff; }
+
+/* ── Carte mise en avant : anthracite ──────────────────────────────────
+   🔴 Couleurs EN DUR, jamais var(--fg)/var(--bg) : ces jetons s inversent
+   en theme sombre et la carte deviendrait anthracite sur anthracite. C est
+   exactement la raison notee au §31 pour le panneau Confiance de la landing,
+   dont on reprend ici les valeurs a l identique (#2C3440 / #EDE7DD). */
+.off-card--fort { background: #2C3440; box-shadow: 0 18px 40px -22px rgba(25,28,39,.6); }
+.off-card--fort .off-cible { color: rgba(237,231,221,.60); }
+.off-card--fort .off-nom { color: #EDE7DD; }
+.off-card--fort .off-prix-u,
+.off-card--fort .off-mes { color: rgba(237,231,221,.68); }
+.off-card--fort .off-llm { background: rgba(0,0,0,.24); box-shadow: none; color: #EDE7DD; }
+.off-card--fort .off-llm-lbl { color: rgba(237,231,221,.55); }
+.off-card--fort .off-specs li { color: #EDE7DD; border-bottom-color: rgba(237,231,221,.16); }
+.off-card--fort .off-specs li:first-child { border-top-color: rgba(237,231,221,.16); }
+.off-card--fort .off-points li { color: rgba(237,231,221,.72); }
+.off-card--fort .off-devis { color: #EDE7DD; }
+/* 🔴 En theme sombre, --surface vaut EXACTEMENT #2C3440 : la carte mise en
+   avant deviendrait indiscernable de ses voisines et la mise en avant
+   disparaitrait. On la remonte d un cran pour conserver le contraste. */
+[data-theme="dark"] .off-card--fort { background: #3A4553; box-shadow: 0 18px 40px -22px rgba(0,0,0,.7); }
+.off-cible { margin: 0; font-size: 11.5px; font-weight: 600; letter-spacing: 1.4px; line-height: 1.45; min-height: 2.9em; text-transform: uppercase; color: var(--muted); }
+.off-nom { margin: 10px 0 0; font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.15; color: var(--fg); }
+
+/* ⚠️ Le prix est la contrainte de largeur de la carte : « 135 000 FCFA » est
+   nettement plus long que « 30 000 FCFA ». La taille est calée pour que le
+   plus long tienne sur une ligne en disposition 4 colonnes. */
+.off-prix { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-top: 16px; }
+.off-prix-num { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.05; letter-spacing: -.02em; color: var(--coral); }
+.off-prix-u { font-size: 12.5px; color: var(--muted); }
+.off-devis { font-family: var(--serif); font-weight: 400; font-size: 25px; line-height: 1.05; color: var(--fg); }
+
+.off-mes { margin: 12px 0 0; font-size: 13.5px; color: var(--muted); }
+.off-mes-barre { text-decoration: line-through; }
+.off-mes-promo { color: var(--coral); font-weight: 600; }
+
+.off-llm { display: flex; flex-direction: column; gap: 5px; margin: 20px 0 0; padding: 13px 15px; min-height: 92px; border-radius: var(--r-sm); background: var(--inset); box-shadow: var(--neo-i-sm); font-size: 13.5px; line-height: 1.5; color: var(--fg); }
+.off-llm-lbl { font-size: 10.5px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+
+.off-specs { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; }
+.off-specs li { padding: 8px 0; font-size: 13.5px; line-height: 1.4; color: var(--fg); border-bottom: 1px solid var(--border); }
+.off-specs li:first-child { border-top: 1px solid var(--border); }
+
+.off-points { list-style: none; margin: 18px 0 22px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.off-points li { display: flex; gap: 9px; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.off-points li span { color: var(--coral); font-weight: 700; }
+
+.off-badge-sp { margin: 0 0 20px; padding: 9px 13px; border-radius: var(--r-sm); font-size: 13px; color: var(--fg); background: rgba(76,149,108,.16); border: 1px solid rgba(76,149,108,.38); }
+.off-btn { margin-top: auto; align-self: flex-start; }
+.off-annuel { margin: 26px 0 0; text-align: center; font-size: 13.5px; color: var(--muted); }
+.off-annuel strong { color: var(--fg); }
+
+.off-credit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 30px; }
+.off-credit-col { background: var(--surface); border-radius: var(--r); padding: 24px 22px; box-shadow: var(--neo-r); }
+.off-credit-col h3 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 19px; color: var(--fg); }
+.off-credit-col p { margin: 10px 0 0; font-size: 14.5px; line-height: 1.6; color: var(--muted); }
+.off-credit-col strong { color: var(--fg); font-weight: 600; }
+.off-note { margin: 22px 0 0; font-size: 14.5px; line-height: 1.6; color: var(--muted); }
+
+.off-donnees { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 30px; }
+.off-donnees-col { background: var(--surface); border-radius: var(--r); padding: 26px 24px; box-shadow: var(--neo-r); }
+.off-donnees-col--fort { border-left: 4px solid var(--coral); }
+.off-donnees-col h3 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 20px; color: var(--fg); }
+.off-donnees-col p { margin: 12px 0 0; font-size: 15px; line-height: 1.65; color: var(--muted); }
+.off-donnees-col strong { color: var(--fg); font-weight: 600; }
+
+.off-faq { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+.off-q { background: var(--surface); border-radius: var(--r); box-shadow: var(--neo-r-sm); padding: 4px 22px; }
+.off-q summary { cursor: pointer; list-style: none; padding: 16px 0; font-family: var(--serif); font-weight: 400; font-size: 18px; color: var(--fg); display: flex; align-items: baseline; gap: 12px; }
+.off-q summary::-webkit-details-marker { display: none; }
+.off-q summary::before { content: "+"; color: var(--coral); font-family: var(--sans); font-size: 17px; line-height: 1; flex: 0 0 auto; }
+.off-q[open] summary::before { content: "−"; }
+.off-q p { margin: 0 0 18px; padding-left: 24px; font-size: 15px; line-height: 1.7; color: var(--muted); }
+.off-q strong { color: var(--fg); font-weight: 600; }
+
+/* Pas intermédiaire : 4 colonnes ne tiennent plus, on repasse à 2 et on rend
+   aux cartes l'aise qu'elles avaient. Doit précéder la règle 860px, sinon
+   c'est elle qui l'emporterait sur mobile (même spécificité, ordre source). */
+@media (max-width: 1139px) {
+  .off-grid { grid-template-columns: repeat(2, 1fr); gap: 22px; }
+  .off-card { padding: 30px 28px; }
+  .off-nom { font-size: 26px; }
+  .off-prix-num { font-size: 31px; }
+  .off-devis { font-size: 27px; }
+  .off-specs li { font-size: 14px; }
+  .off-points li { font-size: 14px; }
+}
+
+@media (max-width: 860px) {
+  .off-grid { grid-template-columns: 1fr; }
+  .off-credit { grid-template-columns: 1fr; }
+  .off-donnees { grid-template-columns: 1fr; }
+}
+
+/* Menu du compte (.um-*) — pastille d identite + deroulante.
+   Le declencheur garde ses styles inline pour reproduire la pastille
+   existante a l identique ; on n habille ici que le panneau. */
+.um { position: relative; }
+.um-chev { color: var(--muted); transition: transform .18s ease; flex: 0 0 auto; }
+.um-chev.is-open { transform: rotate(180deg); }
+.um-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 210px; padding: 8px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--neo-r); display: flex; flex-direction: column; gap: 2px; }
+.um-qui { margin: 0; padding: 6px 10px 8px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+.um-qui-nom { display: block; color: var(--fg); font-weight: 600; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.um-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: none; background: none; border-radius: var(--r-sm); font-family: var(--sans); font-size: 13.5px; color: var(--fg); text-decoration: none; cursor: pointer; text-align: left; }
+.um-item:hover { background: var(--inset); color: var(--coral); }
+.um-item svg { color: var(--muted); flex: 0 0 auto; }
+.um-item:hover svg { color: var(--coral); }
+.um-sep { height: 1px; margin: 5px 4px; background: var(--border); }
+.um-item--sortie:hover { color: var(--coral-d); }

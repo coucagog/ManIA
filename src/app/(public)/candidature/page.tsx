@@ -1,13 +1,35 @@
 // src/app/(public)/candidature/page.tsx
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState, use } from 'react'
 import Link from 'next/link'
 import { creerDemande } from '@/app/actions/demandes'
 import { SECTEURS, SECTEUR_DEFAUT } from '@/lib/secteurs'
+import { OFFRES, OFFRE_CODES, offreASignaler } from '@/lib/offres'
 
-export default function CandidaturePage() {
+// ℹ️ Next 16 : une page CLIENTE reçoit `searchParams` sous forme de Promise et
+//    la lit avec `use()` de React (cf. node_modules/next/dist/docs — page.md).
+//    On évite ainsi `useSearchParams()`, qui imposerait une <Suspense> et
+//    ferait basculer l'arbre en rendu client.
+export default function CandidaturePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const [state, action, pending] = useActionState(creerDemande, undefined)
+
+  // Lien profond depuis /agent-ia : /candidature?offre=cabinet
+  const brut = use(searchParams).offre
+  const depuisUrl = Array.isArray(brut) ? brut[0] : brut
+  const offreInitiale = depuisUrl && OFFRE_CODES.includes(depuisUrl) ? depuisUrl : ''
+
+  const [secteur, setSecteur] = useState(SECTEUR_DEFAUT)
+  const [offre, setOffre] = useState(offreInitiale)
+
+  // 🔴 On SIGNALE, on ne rejette pas : un médecin qui demande « Essentiel »
+  //    doit être accueilli et rappelé, pas éconduit par une erreur. La règle
+  //    vit dans offres.ts, pas ici (sinon elle divergerait — piège §26).
+  const aSignaler = offreASignaler(secteur, offre || null)
 
   if (state?.ok) {
     return (
@@ -56,8 +78,8 @@ export default function CandidaturePage() {
               </svg>
             </span>
             <div>
-              <h2>Vos données restent au Sénégal</h2>
-              <p>Traitement conforme à la loi n°2008-12. Ni revente, ni transmission à des tiers.</p>
+              <h2>Vos données restent cloisonnées</h2>
+              <p>Un espace isolé par client, sauvegarde chiffrée. Traitement conforme à la loi n°2008-12. Ni revente, ni transmission à des tiers.</p>
             </div>
           </div>
 
@@ -101,11 +123,38 @@ export default function CandidaturePage() {
                    placeholder="Cabinet, ONG, agence, atelier…" />
 
             <span className="f-label">Secteur d&apos;activité *</span>
-            <select className="f-in" name="secteur" defaultValue={SECTEUR_DEFAUT} required>
+            <select
+              className="f-in" name="secteur" required
+              value={secteur} onChange={e => setSecteur(e.target.value)}
+            >
               {SECTEURS.map(s => (
                 <option key={s.slug} value={s.slug}>{s.long}</option>
               ))}
             </select>
+
+            <span className="f-label">Offre envisagée</span>
+            <select
+              className="f-in" name="offre"
+              value={offre} onChange={e => setOffre(e.target.value)}
+            >
+              <option value="">Je ne sais pas encore</option>
+              {OFFRES.map(o => (
+                <option key={o.code} value={o.code}>{o.nom} — {o.cible}</option>
+              ))}
+            </select>
+            <p className="cand-hint">
+              Sans engagement : nous vous dirons si une autre offre vous convient mieux.{' '}
+              <Link href="/agent-ia">Voir le détail des offres</Link>.
+            </p>
+
+            {aSignaler && (
+              <p className="cand-avis">
+                Votre secteur relève du <strong>secret professionnel</strong>. Nos offres
+                hébergées n&apos;y sont pas encore ouvertes — mais la{' '}
+                <strong>stack locale</strong>, installée sur votre propre matériel, l&apos;est.
+                Envoyez votre demande : nous vous rappellerons pour en discuter.
+              </p>
+            )}
 
             <span className="f-label">Votre besoin *</span>
             <textarea className="f-in" name="besoin" required rows={5} maxLength={4000}

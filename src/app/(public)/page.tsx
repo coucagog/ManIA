@@ -19,7 +19,7 @@ import { toneDe } from '@/lib/blog-tone'
 export const metadata = {
   title: 'MANIA — Agents IA métier et formation, au Sénégal',
   description:
-    'MANIA crée des agents IA pour les professionnels de tous secteurs et forme vos équipes aux bonnes pratiques des LLM. Données traitées au Sénégal.',
+    'MANIA crée des agents IA pour les professionnels de tous secteurs et forme vos équipes aux bonnes pratiques des LLM. Espaces cloisonnés, ou installation sur votre propre infrastructure.',
 }
 
 function dateCourteFr(d: Date) {
@@ -44,14 +44,20 @@ export default async function LandingPage() {
         <div className="land-hero-grid">
           <div>
             <p className="land-eyebrow">Plateforme IA · Dakar, Sénégal</p>
-            <h1 className="land-h1">Un agent IA qui connaît votre métier, opéré au Sénégal.</h1>
+            <h1 className="land-h1">Un agent IA qui connaît votre métier, conçu et opéré depuis Dakar.</h1>
             <p className="land-lead">
               MANIA crée des agents IA pour les professionnels de tous secteurs —
               commerce, droit, santé, éducation, restauration… — et forme vos équipes aux bonnes
               pratiques des LLM. Vos données restent maîtrisées.
             </p>
+            {/* 🔴 RÈGLE SANS EXCEPTION : l'accueil n'envoie QUE vers les pages
+                PRODUIT, jamais vers un formulaire. Un visiteur qui veut
+                comprendre l'offre ne doit pas tomber sur un champ « Nom et
+                prénom ». La candidature s'atteint depuis /agent-ia, une fois
+                l'offre choisie — et les libellés des boutons doivent annoncer
+                cette destination, pas le formulaire. */}
             <div className="land-hero-actions">
-              <Link href="/candidature" className="btn-cta-sm">Demander un agent →</Link>
+              <Link href="/agent-ia" className="btn-cta-sm">Découvrir les agents →</Link>
               <Link href="/formation" className="land-btn-ghost">Découvrir la formation</Link>
             </div>
           </div>
@@ -81,7 +87,7 @@ export default async function LandingPage() {
         {/* Bandeau stats */}
         <div className="land-stats">
           <div className="land-stat"><div className="land-stat-num">10</div><div className="land-stat-lbl">secteurs d&apos;activité couverts</div></div>
-          <div className="land-stat"><div className="land-stat-num">100%</div><div className="land-stat-lbl">données traitées au Sénégal</div></div>
+          <div className="land-stat"><div className="land-stat-num">100%</div><div className="land-stat-lbl">espaces clients cloisonnés</div></div>
           <div className="land-stat"><div className="land-stat-num">2008-12</div><div className="land-stat-lbl">conforme à la loi sénégalaise</div></div>
         </div>
       </section>
@@ -110,7 +116,7 @@ export default async function LandingPage() {
               <li><span aria-hidden="true">·</span> Espace client isolé, données maîtrisées</li>
               <li><span aria-hidden="true">·</span> Mise en service accompagnée, pas en libre-service</li>
             </ul>
-            <Link href="/candidature" className="btn-cta-sm land-path-btn">Demander un agent →</Link>
+            <Link href="/agent-ia" className="btn-cta-sm land-path-btn">Voir les offres →</Link>
           </div>
 
           <div className="land-path">
@@ -149,8 +155,8 @@ export default async function LandingPage() {
                   <path d="M12 3 4 6.5v5c0 4.4 3.1 7.7 8 9 4.9-1.3 8-4.6 8-9v-5L12 3Z" />
                 </svg>
               </div>
-              <h3>Données traitées au Sénégal</h3>
-              <p>Vos informations restent dans le pays, conformément à la loi n°2008-12. Ni revente, ni transmission à des tiers.</p>
+              <h3>Vos données, sous votre contrôle</h3>
+              <p>Sauvegarde chiffrée, traitement conforme à la loi n°2008-12, ni revente ni transmission à des tiers. Et si rien ne doit sortir de chez vous, nous installons tout sur votre propre infrastructure.</p>
             </div>
             <div>
               <div className="land-trust-ico" aria-hidden="true">
@@ -242,9 +248,9 @@ export default async function LandingPage() {
       <section className="land-section">
         <div className="land-cta">
           <h2>Prêt à confier une tâche à un agent ?</h2>
-          <p>Décrivez votre activité et votre besoin. Nous étudions chaque demande et revenons vers vous par e-mail — chaque agent est configuré pour un métier précis.</p>
+          <p>Comparez les formules, choisissez celle qui correspond à votre activité, puis décrivez-nous votre besoin. Nous étudions chaque demande et revenons vers vous par e-mail — chaque agent est configuré pour un métier précis.</p>
           <div className="land-cta-actions">
-            <Link href="/candidature" className="btn-cta-sm">Demander un agent →</Link>
+            <Link href="/agent-ia" className="btn-cta-sm">Choisir votre offre →</Link>
             <Link href="/formation" className="btn-soft-sm">Découvrir la formation</Link>
           </div>
         </div>

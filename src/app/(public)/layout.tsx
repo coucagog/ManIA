@@ -53,7 +53,7 @@ export default async function PublicLayout({ children }: { children: React.React
             <div className="pub-ft-col">
               <h3>Offres</h3>
               <ul>
-                <li><Link href="/candidature">Agent IA</Link></li>
+                <li><Link href="/agent-ia">Agent IA</Link></li>
                 <li><Link href="/formation">Formation</Link></li>
                 <li><Link href="/blog">Blog</Link></li>
               </ul>
