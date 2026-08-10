@@ -19,7 +19,7 @@ import { toneDe } from '@/lib/blog-tone'
 export const metadata = {
   title: 'MANIA — Agents IA métier et formation, au Sénégal',
   description:
-    'MANIA configure des agents IA pour les professionnels de tous secteurs et forme vos équipes aux bonnes pratiques des LLM. Données traitées au Sénégal, conformément à la loi n°2008-12.',
+    'MANIA crée des agents IA pour les professionnels de tous secteurs et forme vos équipes aux bonnes pratiques des LLM. Données traitées au Sénégal.',
 }
 
 function dateCourteFr(d: Date) {
@@ -46,8 +46,8 @@ export default async function LandingPage() {
             <p className="land-eyebrow">Plateforme IA · Dakar, Sénégal</p>
             <h1 className="land-h1">Un agent IA qui connaît votre métier, opéré au Sénégal.</h1>
             <p className="land-lead">
-              MANIA configure des agents IA pour les professionnels de tous secteurs —
-              commerce, droit, santé, restauration… — et forme vos équipes aux bonnes
+              MANIA crée des agents IA pour les professionnels de tous secteurs —
+              commerce, droit, santé, éducation, restauration… — et forme vos équipes aux bonnes
               pratiques des LLM. Vos données restent maîtrisées.
             </p>
             <div className="land-hero-actions">
@@ -66,14 +66,14 @@ export default async function LandingPage() {
                 </svg>
               </span>
               <div>
-                <div className="land-hv-name">Agent · Commerce</div>
-                <div className="land-hv-org">Quincaillerie Ndiaye</div>
+                <div className="land-hv-name">Agent · Éducation (Mentor)</div>
+                <div className="land-hv-org">Ridwan · Terminale S2</div>
               </div>
               <span className="land-hv-badge"><span className="land-hv-dot" aria-hidden="true" />En ligne</span>
             </div>
             <div className="land-hv-msgs">
-              <div className="land-hv-msg land-hv-msg--in">Prépare le devis pour la commande de ce matin.</div>
-              <div className="land-hv-msg land-hv-msg--out">Devis rédigé dans votre modèle habituel. Souhaitez-vous que je l&apos;envoie au client ?</div>
+              <div className="land-hv-msg land-hv-msg--in">Prépare une fiche de révision pour le contrôle de maths de vendredi.</div>
+              <div className="land-hv-msg land-hv-msg--out">Fiche de révision prête, avec un focus sur tes erreurs habituelles en dérivées. On commence par les rappels de cours, ou on attaque direct les exercices ?</div>
             </div>
           </div>
         </div>
