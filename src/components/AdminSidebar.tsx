@@ -66,11 +66,24 @@ export default function AdminSidebar({ active, initials }: Props) {
           </svg>
           Espace apprenant
         </Link>
+
+        {/* 🔴 La déconnexion était portée par l'avatar du bas : un clic sur son
+            propre badge d'identité déconnectait sans confirmation. Elle devient
+            une entrée LIBELLÉE. L'admin n'a pas de Topbar, donc pas de menu du
+            compte : c'est ici qu'elle doit vivre, et une pastille avec prénom
+            ne tiendrait pas dans 72 px de large. */}
+        <form action={logout}>
+          <button type="submit" className="nav-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 17l5-5-5-5"/><path d="M20 12H9"/>
+              <path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/>
+            </svg>
+            Déconnexion
+          </button>
+        </form>
       </nav>
       <div className="sb-bot">
-        <form action={logout}>
-          <button type="submit" className="avatar" title="Se déconnecter">{initials}</button>
-        </form>
+        <Link href="/profil" className="avatar" title="Mon profil">{initials}</Link>
       </div>
     </aside>
   )

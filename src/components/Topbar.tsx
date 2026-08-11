@@ -1,11 +1,15 @@
-import Link from 'next/link'
 import SearchInput from '@/components/SearchInput'
+import UserMenu from '@/components/UserMenu'
 
 type Props = { placeholder?: string; initials: string; name: string; photoUrl?: string | null }
 
+// La pastille d'identité ouvre désormais le menu du compte au lieu de mener
+// tout droit à /profil. C'est le seul élément présent sur TOUTES les pages de
+// l'espace et à TOUTES les tailles d'écran (la barre latérale disparaît sous
+// 768 px) : c'est donc le seul endroit où la déconnexion et les liens publics
+// sont toujours atteignables. Son habillage ne change pas — le déclencheur de
+// UserMenu reproduit la pastille à l'octet près, chevron en plus.
 export default function Topbar({ placeholder = 'Rechercher…', initials, name, photoUrl }: Props) {
-  const firstName = name.split(' ')[0]
-
   return (
     <header className="topbar">
       <SearchInput placeholder={placeholder} />
@@ -14,25 +18,7 @@ export default function Topbar({ placeholder = 'Rechercher…', initials, name, 
           <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span className="bell-dot"></span>
         </button>
-        <Link href="/profil" style={{
-          display: 'flex', alignItems: 'center', gap: '8px',
-          padding: photoUrl ? '3px 12px 3px 3px' : '3px 12px 3px 3px',
-          background: 'var(--inset)', border: '1px solid var(--border)',
-          borderRadius: '999px', textDecoration: 'none', color: 'var(--fg)',
-          fontSize: '13px', fontWeight: 500,
-        }}>
-          <div className="avatar" style={{
-            width: '28px', height: '28px', fontSize: '11px', flexShrink: 0,
-            ...(photoUrl ? { padding: 0, overflow: 'hidden' } : {}),
-          }}>
-            {photoUrl
-              ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              : initials}
-          </div>
-          <span style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {firstName}
-          </span>
-        </Link>
+        <UserMenu name={name} initials={initials} photoUrl={photoUrl} variant="app" />
       </div>
     </header>
   )

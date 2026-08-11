@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { logout } from '@/app/actions/auth'
 
 type Props = { active: 'dashboard' | 'lesson' | 'catalog' | 'presentiel' | 'experts' | 'dons' | 'profil' | 'other'; initials: string; name?: string; photoUrl?: string | null }
 
@@ -40,13 +39,16 @@ export default function Sidebar({ active, initials, photoUrl }: Props) {
         </Link>
       </nav>
       <div className="sb-bot">
-        <form action={logout}>
-          <button type="submit" className="avatar" title="Se déconnecter" style={photoUrl ? { padding: 0, overflow: 'hidden' } : {}}>
-            {photoUrl
-              ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
-              : initials}
-          </button>
-        </form>
+        {/* 🔴 C'était un bouton de DÉCONNEXION : cliquer son propre avatar
+            déconnectait sur-le-champ, alors que le même avatar mène au profil
+            dans la Topbar. Même visuel, deux comportements opposés, dont l'un
+            est irréversible avec la 2FA. La déconnexion vit maintenant dans le
+            menu du compte (Topbar), libellée et en deux gestes. */}
+        <Link href="/profil" className="avatar" title="Mon profil" style={photoUrl ? { padding: 0, overflow: 'hidden' } : undefined}>
+          {photoUrl
+            ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} />
+            : initials}
+        </Link>
       </div>
     </aside>
   )

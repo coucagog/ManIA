@@ -63,7 +63,11 @@ export default async function PublicLayout({ children }: { children: React.React
               <h3>Contact</h3>
               <ul>
                 <li><a href="mailto:contact@mania.sn">contact@mania.sn</a></li>
-                <li><Link href="/login">Mon espace</Link></li>
+                {/* ⚠️ Le lien était figé sur /login : un visiteur DÉJÀ connecté
+                    y retrouvait le formulaire de connexion (la page /login ne
+                    contrôle pas la session). Le layout dispose de `user` — on
+                    s'en sert, comme le fait déjà l'en-tête. */}
+                <li><Link href={user ? '/dashboard' : '/login'}>Mon espace</Link></li>
               </ul>
             </div>
           </div>

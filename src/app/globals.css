@@ -1357,3 +1357,11 @@ select.f-in { appearance: none; cursor: pointer; }
 .um-item:hover svg { color: var(--coral); }
 .um-sep { height: 1px; margin: 5px 4px; background: var(--border); }
 .um-item--sortie:hover { color: var(--coral-d); }
+/* Etiquette du groupe "Site public" (menu de l espace connecte). */
+.um-groupe { margin: 2px 0 1px; padding: 0 10px; font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+/* Sous 420 px la barre du haut fait 48 px et porte deja recherche + cloche :
+   on ne garde que l avatar et le chevron, le prenom passerait a l etroit. */
+@media (max-width: 420px) {
+  .um-nom { display: none; }
+  .um-trigger { padding-right: 6px !important; }
+}
