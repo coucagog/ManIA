@@ -229,6 +229,10 @@ html, body {
   top: 0;
   bottom: 0;
   z-index: 100;
+  /* La colonne est fixee du haut au bas de l ecran : sans defilement, une
+     entree de trop sortirait de l ecran SANS aucun moyen de l atteindre
+     (l avatar du bas en premier). Invisible tant que rien ne deborde. */
+  overflow-y: auto;
 }
 
 .sb-logo {

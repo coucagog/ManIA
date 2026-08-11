@@ -1,13 +1,15 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions/auth'
 
-type Active = 'dashboard' | 'users' | 'cours' | 'sessions' | 'experts' | 'dons' | 'blog' | 'other'
+type Active = 'dashboard' | 'users' | 'cours' | 'sessions' | 'experts' | 'dons' | 'blog' | 'demandes' | 'other'
 type Props = { active: Active; initials: string }
 
 export default function AdminSidebar({ active, initials }: Props) {
   return (
     <aside className="sidebar">
-      <div className="sb-logo"><span className="man">M</span><span className="ia">IA</span></div>
+      {/* Porte vers le site public — motif identique à Sidebar.tsx (espace
+          apprenant). C'était un <div> : l'admin n'avait aucune sortie vers /. */}
+      <Link href="/" className="sb-logo" aria-label="MANIA — accueil"><span className="man">M</span><span className="ia">IA</span></Link>
       <nav className="sb-nav">
         <Link href="/admin" className={`nav-btn${active === 'dashboard' ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -48,6 +50,15 @@ export default function AdminSidebar({ active, initials }: Props) {
             <path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
           </svg>
           Blog
+        </Link>
+        {/* Candidatures agent ET demandes de formation : les deux écrans
+            allument cette entrée (ils sont jumeaux, cf. leurs tuiles sur /admin). */}
+        <Link href="/admin/demandes" className={`nav-btn${active === 'demandes' ? ' active' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+          </svg>
+          Candidatures
         </Link>
         <Link href="/dashboard" className="nav-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
