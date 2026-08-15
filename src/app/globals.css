@@ -921,6 +921,29 @@ select.f-in { appearance: none; cursor: pointer; }
 .adm-input--court { flex: 0 0 150px; }
 .adm-input:focus { box-shadow: var(--neo-i), inset 0 0 0 1.5px var(--coral); }
 
+/* Confirmation d'une action destructrice (suppression de candidature,
+   de-provisionnement). Ces classes etaient declarees dans les composants mais
+   n'avaient AUCUNE regle : dette n1 de la feuille de route STACK-3 4.A.
+   Le bloc prend toute la largeur - c'est un temps d'arret, pas un bouton de
+   plus dans la rangee. */
+.adm-confirm {
+  flex: 1 1 100%;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 12px 14px; border-radius: var(--r-sm);
+  background: rgba(179, 64, 47, .06);
+  box-shadow: inset 0 0 0 1.5px rgba(179, 64, 47, .22);
+  font-size: 12.5px; line-height: 1.6; color: var(--fg);
+}
+/* `.adm-actions form` est plus specifique (classe + element) et imposerait son
+   gap et son margin: 0 - d'ou ce selecteur a deux classes. */
+.adm-actions .adm-confirm { gap: 8px; margin: 8px 0 0; }
+.adm-confirm > span { flex: 1 1 100%; }
+/* .adm-input porte `min-width: 0` : sans base explicite il se reduit a rien
+   des que le texte d'avertissement occupe la ligne. Une adresse e-mail doit
+   rester lisible pendant qu'on la retape. */
+.adm-confirm .adm-input { flex: 1 1 280px; min-width: 220px; }
+.adm-err { flex: 1 1 100%; margin: 4px 0 0; color: #B3402F; font-size: 12.5px; }
+
 .adm-aide {
   margin-top: 14px; padding: 12px 14px; border-radius: var(--r-sm);
   background: rgba(240,140,106,.07); font-size: 12.5px; line-height: 1.6;
