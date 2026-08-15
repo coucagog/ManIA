@@ -2,6 +2,12 @@
 FROM node:22-alpine AS deps
 RUN apk add --no-cache python3 make g++ libc6-compat
 WORKDIR /app
+# 🔴 npm ÉPINGLÉ — correctif préventif de STACK §23, resté ouvert jusqu'au 15/08.
+#    npm 12 bloque par défaut les scripts d'installation : better-sqlite3 ne se
+#    compile plus et mania-app ne démarre pas. Le jour où `node:22-alpine`
+#    embarquera npm 12, un déploiement banal casserait la prod sans prévenir.
+#    ⚠️ `npm rebuild` répondrait « rebuilt successfully » sans avoir rien compilé.
+RUN npm i -g npm@10.9.8
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -25,6 +31,9 @@ ENV NODE_ENV=production \
 
 # Réinstaller uniquement les dépendances de production
 # (recompile better-sqlite3 pour cette version Alpine)
+# Même épinglage qu'au stage 1 : c'est ICI que tourne la compilation qui sert
+# en production.
+RUN npm i -g npm@10.9.8
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 

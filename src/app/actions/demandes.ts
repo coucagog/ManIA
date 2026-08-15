@@ -142,11 +142,57 @@ export async function lierLocataire(formData: FormData) {
 
 // ⚠️ Suppression définitive — à n'utiliser que pour le spam.
 // Une demande légitime se marque "refusee", elle ne se supprime pas :
-// garder la trace protège en cas de contestation.
-export async function supprimerDemande(formData: FormData) {
+// garder la trace protège en cas de contestation (STACK §23).
+//
+// 🔴 Durcie le 2026-08-15 (STACK-5 §55.1). Avant, un seul clic suffisait, sans
+//    aucune confirmation, sur un bouton posé juste sous « → Qualifiée » et
+//    « → Refusée » qui servent en routine. Ce clic efface l'horodatage
+//    `consentement`, créé en DateTime *précisément* pour prouver QUAND le
+//    consentement a été donné (loi 2008-12) — un booléen n'aurait rien prouvé.
+//    L'incohérence était interne au projet : le dé-provisionnement exige TROIS
+//    barrières, celle-ci n'en avait aucune.
+//
+// Deux garde-fous, sur le modèle du dé-provisionnement (doctrine STACK-3 §4 :
+// confirmation d'interface ET vérification serveur, jamais l'une sans l'autre).
+export async function supprimerDemande(
+  _state: { error?: string } | undefined,
+  formData: FormData,
+): Promise<{ error?: string }> {
   await requireAdmin()
   const id = formData.get('id') as string
-  if (!id) return
+  const confirmEmail = ((formData.get('confirmEmail') as string) || '')
+    .trim()
+    .toLowerCase()
+  if (!id) return { error: 'Demande introuvable.' }
+
+  const d = await prisma.demandeAgent.findUnique({
+    where: { id },
+    select: { email: true, tenantSlug: true },
+  })
+  if (!d) return { error: 'Demande introuvable.' }
+
+  // 🔴 Garde-fou n°1 — LOCATAIRE ORPHELIN (§55.2). `tenantSlug` est le SEUL
+  //    lien entre une candidature et le conteneur créé pour elle : l'effacer
+  //    laisserait un agent qui tourne, occupe une des 5-6 places de la machine
+  //    et garde les données d'un client, sans plus aucune trace dans l'admin.
+  //    On ne construit pas /admin/locataires ici, mais on ferme le chemin par
+  //    lequel un orphelin se crée.
+  if (d.tenantSlug) {
+    return {
+      error:
+        `Locataire « ${d.tenantSlug} » encore lié. Dé-provisionnez-le d'abord : ` +
+        `sinon l'agent continuerait de tourner sans aucun lien depuis l'admin.`,
+    }
+  }
+
+  // Garde-fou n°2 — l'e-mail retapé doit correspondre. Il défend contre les
+  // deux risques réels : le clic accidentel, et la suppression de la MAUVAISE
+  // carte dans une liste où tous les boutons sont identiques.
+  if (confirmEmail !== d.email.toLowerCase()) {
+    return { error: "L'adresse retapée ne correspond pas à cette candidature." }
+  }
+
   await prisma.demandeAgent.delete({ where: { id } })
   revalidatePath('/admin/demandes')
+  return {}
 }

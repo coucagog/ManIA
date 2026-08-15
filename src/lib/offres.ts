@@ -154,16 +154,38 @@ export const MOIS_PAYES_PAR_AN = 10
 export const SECTEURS_SECRET_PRO: readonly string[] = ['sante', 'droit', 'finance']
 
 /**
- * Vrai si le couple (secteur, offre) demande une reprise de contact avant
- * provisionnement : métier à secret professionnel sur un palier hébergé.
- * Tolérant aux valeurs vides — une demande sans offre choisie n'est pas
- * signalée.
+ * Motif de signalement d'une candidature à secret professionnel.
+ * - `palier-ferme`   : le palier demandé est fermé à ce métier (offre hébergée).
+ * - `palier-inconnu` : aucun palier n'a été choisi — ou un code non reconnu.
  */
-export function offreASignaler(secteur: string | null, offre: string | null): boolean {
-  if (!secteur || !offre) return false
-  if (!SECTEURS_SECRET_PRO.includes(secteur)) return false
+export type MotifSecretPro = 'palier-ferme' | 'palier-inconnu'
+
+/**
+ * Signale une candidature dont le MÉTIER relève du secret professionnel.
+ *
+ * 🔴 Corrigé le 2026-08-15 (STACK-5 §55.3). La version précédente exigeait
+ *    qu'une offre ait été choisie (`if (!secteur || !offre) return false`) —
+ *    or **l'exclusion du §50 porte sur le métier, pas sur le palier**. Un
+ *    prospect santé qui ne cochait rien ne déclenchait donc AUCUNE alerte,
+ *    c'est-à-dire précisément le cas qui en a le plus besoin : celui où rien
+ *    n'a encore été discuté.
+ *    ⚠️ Le §52 avait pourtant validé « 6 cas testés, 6 conformes » : la matrice
+ *    de tests avait consacré le défaut. Un test vert ne prouve pas la règle.
+ *
+ * Retourne `null` quand il n'y a rien à signaler — y compris pour la stack
+ * locale, seul palier ouvert à ces métiers (`secretPro: true`).
+ */
+export function signalementSecretPro(
+  secteur: string | null,
+  offre: string | null,
+): MotifSecretPro | null {
+  if (!secteur || !SECTEURS_SECRET_PRO.includes(secteur)) return null
+  if (!offre) return 'palier-inconnu'
   const o = OFFRES.find(x => x.code === offre)
-  return !!o && !o.secretPro
+  // Code inconnu (demande ancienne ou envoi forgé) : on ne peut pas affirmer
+  // que le palier est ouvert, donc on signale plutôt que de se taire.
+  if (!o) return 'palier-inconnu'
+  return o.secretPro ? null : 'palier-ferme'
 }
 
 // ── Dérivés — NE PAS éditer à la main, ils suivent le tableau ci-dessus ──

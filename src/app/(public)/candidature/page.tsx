@@ -5,7 +5,7 @@ import { useActionState, useState, use } from 'react'
 import Link from 'next/link'
 import { creerDemande } from '@/app/actions/demandes'
 import { SECTEURS, SECTEUR_DEFAUT } from '@/lib/secteurs'
-import { OFFRES, OFFRE_CODES, offreASignaler } from '@/lib/offres'
+import { OFFRES, OFFRE_CODES, signalementSecretPro } from '@/lib/offres'
 
 // ℹ️ Next 16 : une page CLIENTE reçoit `searchParams` sous forme de Promise et
 //    la lit avec `use()` de React (cf. node_modules/next/dist/docs — page.md).
@@ -29,7 +29,12 @@ export default function CandidaturePage({
   // 🔴 On SIGNALE, on ne rejette pas : un médecin qui demande « Essentiel »
   //    doit être accueilli et rappelé, pas éconduit par une erreur. La règle
   //    vit dans offres.ts, pas ici (sinon elle divergerait — piège §26).
-  const aSignaler = offreASignaler(secteur, offre || null)
+  // ⚠️ COMPORTEMENT PUBLIC STRICTEMENT INCHANGÉ (discipline du §29, tenue à
+  //    chaque refonte de cette page) : l'avis n'apparaît QUE si le palier
+  //    choisi est fermé à ce métier. Le motif `palier-inconnu` introduit au
+  //    §55.3 est délibérément ignoré ici — il ne sert qu'à l'admin, à qui il
+  //    manquait une alerte. Le prospect, lui, n'est jamais éconduit (§50).
+  const aSignaler = signalementSecretPro(secteur, offre || null) === 'palier-ferme'
 
   if (state?.ok) {
     return (

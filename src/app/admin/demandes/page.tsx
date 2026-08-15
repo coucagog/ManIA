@@ -10,12 +10,12 @@ import {
   changerStatutDemande,
   enregistrerNote,
   lierLocataire,
-  supprimerDemande,
 } from '@/app/actions/demandes'
 import { LIB_SECTEUR } from '@/lib/secteurs'
-import { LIB_OFFRE, offreASignaler } from '@/lib/offres'
+import { LIB_OFFRE, signalementSecretPro } from '@/lib/offres'
 import { ProvisionPanel } from '@/components/ProvisionPanel'
 import { DeprovisionButton } from '@/components/DeprovisionButton'
+import { SupprimerDemandeButton } from '@/components/SupprimerDemandeButton'
 import AdminSidebar from '@/components/AdminSidebar'
 
 
@@ -24,6 +24,19 @@ const LIB_STATUT: Record<string, string> = {
   qualifiee: 'Qualifiée',
   acceptee: 'Acceptée',
   refusee: 'Refusée',
+}
+
+/** Rétention annoncée sur /confidentialite : « Candidatures non retenues : 12 mois ». */
+const RETENTION_JOURS = 365
+
+/**
+ * Âge en jours. Calculé côté SERVEUR uniquement (cette page est un composant
+ * serveur) : `Date.now()` n'y provoque pas d'écart d'hydratation.
+ * ⚠️ §55.4 — ceci ne fait qu'AFFICHER l'âge. Aucune purge automatique n'existe
+ *    encore : la promesse des 12 mois reste tenue à la main.
+ */
+function ageJours(d: Date) {
+  return Math.floor((Date.now() - d.getTime()) / 86_400_000)
 }
 
 function dateFr(d: Date) {
@@ -103,7 +116,13 @@ export default async function AdminDemandesPage({
             <p className="adm-vide">Aucune demande pour ce filtre.</p>
           )}
 
-          {demandes.map(d => (
+          {demandes.map(d => {
+            const motif = signalementSecretPro(d.secteur, d.offre)
+            const age = ageJours(d.createdAt)
+            // « Non retenue » = refusée : c'est la catégorie que /confidentialite
+            // promet de purger au bout de 12 mois.
+            const aPurger = d.statut === 'refusee' && age > RETENTION_JOURS
+            return (
             <article key={d.id} className={`adm-carte adm-carte--${d.statut}`}>
               <header className="adm-carte-tete">
                 <div>
@@ -122,13 +141,22 @@ export default async function AdminDemandesPage({
                 </span>
               </header>
 
-              {/* 🔴 Métier à secret professionnel sur un palier hébergé : la
-                  candidature est acceptée mais demande un rappel avant tout
-                  provisionnement (décision d'exclusion, STACK-5 §50). */}
-              {offreASignaler(d.secteur, d.offre) && (
+              {/* 🔴 Métier à secret professionnel : la candidature est acceptée
+                  mais demande un rappel avant tout provisionnement (décision
+                  d'exclusion, STACK-5 §50). Deux cas distincts depuis le §55.3 —
+                  l'absence de palier choisi est celui qui a le PLUS besoin d'être
+                  signalé, puisque rien n'a encore été discuté. */}
+              {motif === 'palier-ferme' && (
                 <p className="adm-alerte-sp">
                   Secteur à secret professionnel sur une offre hébergée — rappeler avant
                   provisionnement. Seule la stack locale est ouverte à ce métier.
+                </p>
+              )}
+              {motif === 'palier-inconnu' && (
+                <p className="adm-alerte-sp">
+                  Secteur à secret professionnel, <strong>aucun palier retenu</strong>{' '}
+                  — rappeler avant toute proposition. Seule la stack locale est ouverte
+                  à ce métier ; les offres hébergées lui sont fermées.
                 </p>
               )}
 
@@ -136,6 +164,12 @@ export default async function AdminDemandesPage({
 
               <p className="adm-consent">
                 Consentement enregistré le {dateFr(d.consentement)}
+                {' · déposée il y a '}{age}{age > 1 ? ' jours' : ' jour'}
+                {/* Le {' '} après </strong> est explicite : le compilateur JSX
+                    mange l'espace qui suit une balise inline fermante (§52). */}
+                {aPurger && (
+                  <> · <strong>au-delà des 12 mois annoncés</strong>{' '}— à purger</>
+                )}
                 {d.tenantSlug && <> · locataire <code>{d.tenantSlug}</code></>}
               </p>
 
@@ -185,13 +219,11 @@ export default async function AdminDemandesPage({
 
                 {/* ⚠️ Suppression : réservée au SPAM. Une demande légitime se
                     marque "Refusée" — garder la trace protège en cas de
-                    contestation (loi 2008-12, preuve du consentement). */}
-                <form action={supprimerDemande}>
-                  <input type="hidden" name="id" value={d.id} />
-                  <button className="adm-btn adm-btn--danger" type="submit">
-                    Supprimer (spam)
-                  </button>
-                </form>
+                    contestation (loi 2008-12, preuve du consentement).
+                    🔴 §55.1 : le bouton n'agit plus au premier clic. Il ouvre une
+                    confirmation (retaper l'e-mail), doublée d'une vérification
+                    serveur qui refuse aussi tant qu'un locataire est lié. */}
+                <SupprimerDemandeButton id={d.id} email={d.email} />
               </div>
 
               {/* Rappel du parcours : le script n'est PAS lancé depuis le web
@@ -220,7 +252,8 @@ export default async function AdminDemandesPage({
                 </div>
               )}
             </article>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
