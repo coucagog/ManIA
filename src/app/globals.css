@@ -942,6 +942,10 @@ select.f-in { appearance: none; cursor: pointer; }
    des que le texte d'avertissement occupe la ligne. Une adresse e-mail doit
    rester lisible pendant qu'on la retape. */
 .adm-confirm .adm-input { flex: 1 1 280px; min-width: 220px; }
+/* `.adm-aide code` est en display:block - fait pour la commande pre-remplie du
+   23, pas pour une phrase. Dans une confirmation, le slug doit rester EN LIGNE :
+   sinon on lit « Retape / azerty / pour confirmer ». */
+.adm-confirm code { display: inline; margin: 0; word-break: normal; }
 .adm-err { flex: 1 1 100%; margin: 4px 0 0; color: #B3402F; font-size: 12.5px; }
 
 .adm-aide {

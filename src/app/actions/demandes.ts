@@ -177,11 +177,23 @@ export async function supprimerDemande(
   //    et garde les données d'un client, sans plus aucune trace dans l'admin.
   //    On ne construit pas /admin/locataires ici, mais on ferme le chemin par
   //    lequel un orphelin se crée.
+  //
+  // ⚠️ On interroge la table `Tenant`, PAS la chaîne `tenantSlug`. Le
+  //    dé-provisionnement supprime la ligne `Tenant` mais laisse `tenantSlug`
+  //    renseigné sur la candidature : se fier à la chaîne bloquerait pour
+  //    toujours une fiche dont le conteneur n'existe plus — un garde-fou sans
+  //    porte de sortie. Mesuré le 2026-08-15 sur le locataire de test `azerty`.
   if (d.tenantSlug) {
-    return {
-      error:
-        `Locataire « ${d.tenantSlug} » encore lié. Dé-provisionnez-le d'abord : ` +
-        `sinon l'agent continuerait de tourner sans aucun lien depuis l'admin.`,
+    const locataire = await prisma.tenant.findUnique({
+      where: { slug: d.tenantSlug },
+      select: { slug: true },
+    })
+    if (locataire) {
+      return {
+        error:
+          `Locataire « ${d.tenantSlug} » encore actif. Dé-provisionnez-le d'abord : ` +
+          `sinon l'agent continuerait de tourner sans aucun lien depuis l'admin.`,
+      }
     }
   }
 
