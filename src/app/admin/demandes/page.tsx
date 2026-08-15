@@ -70,6 +70,16 @@ export default async function AdminDemandesPage({
     take: 200,
   })
 
+  // 🔴 `tenantSlug` est une CHAÎNE que le dé-provisionnement ne nettoie pas :
+  //    une fiche continue d'afficher son locataire longtemps après la mort du
+  //    conteneur. Se fier à cette chaîne, c'est proposer de dé-provisionner ce
+  //    qui n'existe plus — le défaut exact corrigé côté serveur en `d742de9`.
+  //    On confronte donc à la table `Tenant`, seule source de vérité.
+  //    Une requête pour toute la page : le parc tient en quelques lignes (§16).
+  const slugsActifs = new Set(
+    (await prisma.tenant.findMany({ select: { slug: true } })).map(t => t.slug),
+  )
+
   const compteurs = await prisma.demandeAgent.groupBy({
     by: ['statut'],
     _count: { _all: true },
@@ -122,6 +132,7 @@ export default async function AdminDemandesPage({
             // « Non retenue » = refusée : c'est la catégorie que /confidentialite
             // promet de purger au bout de 12 mois.
             const aPurger = d.statut === 'refusee' && age > RETENTION_JOURS
+            const locataireActif = !!d.tenantSlug && slugsActifs.has(d.tenantSlug)
             return (
             <article key={d.id} className={`adm-carte adm-carte--${d.statut}`}>
               <header className="adm-carte-tete">
@@ -170,7 +181,12 @@ export default async function AdminDemandesPage({
                 {aPurger && (
                   <> · <strong>au-delà des 12 mois annoncés</strong>{' '}— à purger</>
                 )}
-                {d.tenantSlug && <> · locataire <code>{d.tenantSlug}</code></>}
+                {d.tenantSlug && (
+                  <>
+                    {' · locataire '}<code>{d.tenantSlug}</code>
+                    {!locataireActif && <>{' '}<strong>(supprimé)</strong></>}
+                  </>
+                )}
               </p>
 
               <div className="adm-actions">
@@ -245,8 +261,10 @@ export default async function AdminDemandesPage({
                 </div>
               )}
 
-              {/* Locataire déjà lié : suppression possible (irréversible). */}
-              {d.tenantSlug && (
+              {/* Locataire réellement EXISTANT : suppression possible (irréversible).
+                  ⚠️ Conditionné à la table `Tenant`, pas à `tenantSlug` — sinon on
+                  proposerait de dé-provisionner un conteneur déjà mort. */}
+              {locataireActif && d.tenantSlug && (
                 <div className="adm-aide">
                   <DeprovisionButton slug={d.tenantSlug} />
                 </div>
