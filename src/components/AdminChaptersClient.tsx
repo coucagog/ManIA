@@ -18,7 +18,7 @@ function detectFileType(filename: string): string {
   if (['doc', 'docx'].includes(ext)) return 'Word'
   if (['ppt', 'pptx'].includes(ext)) return 'PPT'
   if (['xls', 'xlsx'].includes(ext)) return 'Excel'
-  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return 'Image'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].includes(ext)) return 'Image'
   return 'Fichier'
 }
 

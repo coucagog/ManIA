@@ -18,6 +18,15 @@ interface Props {
   resources: Resource[]
 }
 
+// L'étiquette fileType est figée au téléversement et ignore le SVG : on décide
+// de l'aperçu sur l'extension de l'URL, ce qui vaut aussi pour l'existant.
+const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg']
+
+function isImage(url: string) {
+  const ext = url.split(/[?#]/)[0].split('.').pop()?.toLowerCase() ?? ''
+  return IMAGE_EXT.includes(ext)
+}
+
 function fmtSize(bytes: number | null) {
   if (!bytes) return ''
   if (bytes < 1024) return `${bytes} o`
@@ -31,9 +40,36 @@ export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle
   const [noteState, noteAction, notePending] = useActionState(saveNote, undefined)
   const [localNote, setLocalNote] = useState(noteContent)
   const [mounted, setMounted] = useState(false)
+  // On mémorise le chapitre d'ouverture : si le chapitre change sous le
+  // panneau, la visionneuse se referme d'elle-même, sans effet de reprise.
+  const [opened, setOpened] = useState<{ chapterId: string; index: number } | null>(null)
+  const shot = opened && opened.chapterId === chapterId ? opened.index : null
+
+  const images = resources.filter(r => isImage(r.url))
+  const setShot = (index: number | null) =>
+    setOpened(index === null ? null : { chapterId, index })
 
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => { setLocalNote(noteContent) }, [noteContent, chapterId])
+
+  // Visionneuse ouverte : Échap ferme, flèches naviguent, et le fond ne défile
+  // plus derrière le calque.
+  useEffect(() => {
+    if (shot === null) return
+    const count = images.length
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpened(null)
+      else if (e.key === 'ArrowRight') setOpened({ chapterId, index: (shot! + 1) % count })
+      else if (e.key === 'ArrowLeft') setOpened({ chapterId, index: (shot! - 1 + count) % count })
+    }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [shot, images.length, chapterId])
 
   function switchTab(tab: PanelTab) {
     setActiveTab(tab)
@@ -66,11 +102,46 @@ export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle
     </div>
   )
 
+  const current = shot !== null ? images[shot] : undefined
+
+  const viewer = current && (
+    <div className="lb" role="dialog" aria-modal="true" aria-label={current.name} onClick={() => setShot(null)}>
+      <button className="lb-x" onClick={() => setShot(null)} aria-label="Fermer">✕</button>
+
+      {images.length > 1 && (
+        <button
+          className="lb-nav lb-prev"
+          aria-label="Schéma précédent"
+          onClick={e => { e.stopPropagation(); setShot((shot! - 1 + images.length) % images.length) }}
+        >‹</button>
+      )}
+
+      <img className="lb-img" src={current.url} alt={current.name} onClick={e => e.stopPropagation()} />
+
+      {images.length > 1 && (
+        <button
+          className="lb-nav lb-next"
+          aria-label="Schéma suivant"
+          onClick={e => { e.stopPropagation(); setShot((shot! + 1) % images.length) }}
+        >›</button>
+      )}
+
+      <div className="lb-bar" onClick={e => e.stopPropagation()}>
+        <span className="lb-name">{current.name}</span>
+        {images.length > 1 && <span className="lb-count">{shot! + 1} / {images.length}</span>}
+        <a className="lb-full" href={current.url} target="_blank" rel="noreferrer">Taille réelle ↗</a>
+      </div>
+    </div>
+  )
+
   return (
     <>
       {/* Portal: injects mobile tab bar into the lesson-center container */}
       {mounted && document.getElementById('m-lesson-tabs-container') &&
         createPortal(mobileTabBar, document.getElementById('m-lesson-tabs-container')!)}
+
+      {/* Portal: the viewer must escape the panel's overflow */}
+      {mounted && viewer && createPortal(viewer, document.body)}
 
       <div className={`rpanel${mobileTab !== 'video' ? ' m-visible' : ''}`}>
         <div className="p-tabs">
@@ -104,7 +175,24 @@ export default function LessonPanel({ noteContent, chapterId, slug, chapterTitle
             <div className="tab-pane active">
               {resources.length > 0 ? (
                 <>
-                  {resources.map(r => (
+                  {resources.map(r => isImage(r.url) ? (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="res-shot"
+                      onClick={() => setShot(images.findIndex(i => i.id === r.id))}
+                      aria-label={`Agrandir : ${r.name}`}
+                    >
+                      <img className="res-shot-img" src={r.url} alt={r.name} loading="lazy" />
+                      <span className="res-shot-cap">
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span className="res-name" style={{ display: 'block' }}>{r.name}</span>
+                          {r.fileSize && <span className="res-size">{fmtSize(r.fileSize)}</span>}
+                        </span>
+                        <span className="res-dl">⤢ Agrandir</span>
+                      </span>
+                    </button>
+                  ) : (
                     <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="res-item" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
                       <div className="res-icon">{r.fileType}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>

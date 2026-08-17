@@ -542,6 +542,29 @@ html, body {
 .res-size { font-size: 11px; color: var(--muted); }
 .res-dl { font-size: 11px; color: var(--coral); cursor: pointer; white-space: nowrap; margin-left: auto; }
 
+/* Ressource image : aperçu cliquable plutôt qu'une ligne de téléchargement */
+.res-shot { display: block; width: 100%; padding: 11px; background: var(--bg); border: none; border-radius: 10px; box-shadow: var(--neo-i-sm); margin-bottom: 9px; cursor: zoom-in; text-align: left; font-family: inherit; }
+.res-shot-img { display: block; width: 100%; max-height: 220px; object-fit: contain; border-radius: 8px; background: var(--surface); }
+.res-shot-cap { display: flex; align-items: center; gap: 11px; margin-top: 9px; }
+
+/* Visionneuse plein écran (portail vers body) */
+.lb { position: fixed; inset: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 48px 56px 76px; background: rgba(20, 25, 33, .88); cursor: zoom-out; }
+.lb-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; background: #fff; cursor: default; }
+.lb-x { position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; border: none; border-radius: 50%; background: rgba(255, 255, 255, .12); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; }
+.lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 56px; border: none; border-radius: var(--r-sm); background: rgba(255, 255, 255, .12); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+.lb-prev { left: 10px; }
+.lb-next { right: 10px; }
+.lb-x:hover, .lb-nav:hover { background: rgba(255, 255, 255, .22); }
+.lb-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 14px; padding: 14px 20px; background: rgba(20, 25, 33, .72); cursor: default; }
+.lb-name { flex: 1; min-width: 0; font-size: 12px; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-count { font-size: 11px; color: rgba(255, 255, 255, .6); white-space: nowrap; }
+.lb-full { font-size: 11px; color: var(--coral); text-decoration: none; white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .lb { padding: 40px 12px 68px; }
+  .lb-nav { width: 32px; height: 48px; font-size: 22px; }
+}
+
 .notes-ta { width: 100%; min-height: 160px; background: var(--bg); border: none; border-radius: 10px; box-shadow: var(--neo-i); padding: 12px; font-family: var(--sans); font-size: 13px; color: var(--fg); line-height: 1.6; resize: vertical; outline: none; margin-bottom: 10px; }
 .notes-hint, .notes-priv { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
 .notes-exp { font-size: 11px; color: var(--muted); cursor: pointer; text-align: right; display: block; margin-top: 10px; }
